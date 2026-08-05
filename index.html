@@ -341,7 +341,11 @@ function createRenderer(canvas){
       bool inMk = (uCorner==0 && xr && yt) || (uCorner==1 && xl && yt)
                || (uCorner==2 && xr && yb) || (uCorner==3 && xl && yb);
       if(inMk){ gl_FragColor = (uMarker==1) ? vec4(uMarkerRGB,1.0) : vec4(0.0,0.0,0.0,1.0); return; }
-      float d = fx*cos(uTheta) + fy*sin(uTheta);
+      // fy runs top→bottom (screen) but the reference generator's y runs bottom→top (math),
+      // so the fy term is negated — otherwise oblique orientations (45°/135°) come out
+      // MIRRORED (the runner's "45°" would be the generator's "135°"). Verified frame-for-
+      // frame against the pulse2percept generator at 0/45/90/135°.
+      float d = fx*cos(uTheta) - fy*sin(uTheta);
       float g = sin(6.2831853*uSF*d + uPhase);
       if(uWaveform > 0.5) g = (g > 0.0) ? 1.0 : -1.0;   // binary square wave (threshold at mid, = our videos)
       float L = clamp(uMeanLum*(1.0 + uContrast*g), 0.0, 1.0);
@@ -389,7 +393,9 @@ function createRenderer(canvas){
   let last = performance.now();
   function frame(now){
     const dt = (now-last)/1000; last=now;
-    if(st.moving && st.contrast>0) st.phase += 2*Math.PI*st.tf*dt;
+    // phase DECREASES so the grating drifts in the reference generator's direction (with the
+    // y-flip above, +phase would drift the opposite way — verified vs pulse2percept).
+    if(st.moving && st.contrast>0) st.phase -= 2*Math.PI*st.tf*dt;
 
     let marker = 0;
     if(st.markerOnset!==null){

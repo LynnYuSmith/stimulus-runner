@@ -49,6 +49,20 @@ test("cyc/deg -> cyc/px uses pixels-per-degree", () => {
   assert.ok(Math.abs(P.cyclesPerPixel(0.04, 20) - 0.002) < 1e-9);
 });
 
+test("grating orientation convention matches the generator (fy is negated, not mirrored)", () => {
+  const sf = 0.02;
+  // horizontal step (+x) raises the phase for a 0deg grating (vertical bars drift in x)
+  assert.ok(P.gratingPhaseArg(1, 0, 0, sf, 0) - P.gratingPhaseArg(0, 0, 0, sf, 0) > 0);
+  // the load-bearing sign: a downward step (+y) must LOWER the phase for a 45deg grating.
+  // With a "+fy" regression this would be positive, mirroring 45deg into 135deg.
+  const dPhi_dy_45 = P.gratingPhaseArg(0, 1, 45, sf, 0) - P.gratingPhaseArg(0, 0, 45, sf, 0);
+  assert.ok(dPhi_dy_45 < 0, "45deg grating must have -fy convention (else obliques mirror)");
+  // 45 and 135 must be genuinely different orientations (not accidentally equal)
+  const g45 = P.gratingPhaseArg(1, 1, 45, sf, 0) - P.gratingPhaseArg(0, 0, 45, sf, 0);
+  const g135 = P.gratingPhaseArg(1, 1, 135, sf, 0) - P.gratingPhaseArg(0, 0, 135, sf, 0);
+  assert.ok(Math.abs(g45 - g135) > 1e-6);
+});
+
 test("blockLabel is events_labeled-style", () => {
   assert.strictEqual(P.blockLabel("grey"), "Grey");
   assert.strictEqual(P.blockLabel("moving", 45), "Moving 45°");

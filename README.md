@@ -56,6 +56,12 @@ in **cycles per (frame) pixel**; with the default 150 px width, 0.02 cyc/px is 3
 across. Grey level, frame size, marker corner/size, output size, and pixelation are all set
 in *Screen & stimulus*. Gamma linearization (LUT) is not yet applied.
 
+The orientation convention is matched to the reference generator: the vertical term is
+`− fy·sin θ` (screen y runs top→bottom, the generator's runs bottom→top), and the drift
+phase decreases over time. This was verified frame-for-frame against the pulse2percept
+generator at 0/45/90/135° — without it, oblique orientations (45°/135°) would come out
+mirrored and every oblique tuning label would be wrong.
+
 ## Sequence (grating + grey/black rest blocks)
 
 The sequence is a **literal** list of blocks, each run for its own duration, in order:

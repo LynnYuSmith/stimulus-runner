@@ -166,9 +166,23 @@
     return Number(sfCpd) / Math.max(Number(pxPerDeg), 1e-6);
   }
 
+  /**
+   * Phase argument of the grating at frame pixel (fx, fy) — MIRRORS the WebGL shader
+   * (`d = fx*cos(theta) - fy*sin(theta); arg = 2*pi*sf*d + phase`) so the orientation
+   * convention is node-testable. The ``-fy`` is load-bearing: fy runs top→bottom on screen
+   * but the reference generator's y runs bottom→top, so without the minus sign the oblique
+   * orientations (45°/135°) come out MIRRORED. Verified frame-for-frame against the
+   * pulse2percept generator. Keep this in sync with the shader in index.html.
+   */
+  function gratingPhaseArg(fx, fy, thetaDeg, sf, phase) {
+    const th = Number(thetaDeg) * Math.PI / 180;
+    const d = Number(fx) * Math.cos(th) - Number(fy) * Math.sin(th);
+    return 2 * Math.PI * Number(sf) * d + (Number(phase) || 0);
+  }
+
   const API = {
     MARKER, STIM, pulsesFor, markerSidePx, markerTrainDuration, blockLabel,
-    queueTimeline, buildProtocol, cyclesPerPixel,
+    queueTimeline, buildProtocol, cyclesPerPixel, gratingPhaseArg,
   };
 
   if (typeof module !== "undefined" && module.exports) module.exports = API;
