@@ -1,0 +1,10 @@
+{
+  "name": "stimulus-runner",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Interactive browser-based drifting/static grating presenter for two-photon rig experiments (v1 manual).",
+  "scripts": {
+    "test": "node test/protocol.test.js"
+  },
+  "license": "MIT"
+}

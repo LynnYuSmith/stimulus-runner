@@ -1,0 +1,701 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Grating Stimulator · v1</title>
+<!--
+  Interactive grating stimulator — v1 (manual browser presenter).
+
+  v1 goal: a light, seamless grey<->grating presenter for two-photon rig experiments.
+  A closed-loop camera trigger (fire when the mouse is calm >=2s) is a later phase and
+  adds a small Python backend; it is NOT here.
+
+  MARKER ENCODING is reproduced one-to-one from the recording pipeline's stimulus
+  generator, so the recording's photodiode + the existing decoder read it unchanged:
+      grey = 1 pulse, still = 2 pulses, moving = 3 pulses
+      pulse width = 3 frames, gap = 3 frames  ->  onset-to-onset period = 6 frames
+      a RED square in a screen corner, reserved black, flashed on pulse
+  These constants live in protocol.js. Timing is driven in TIME via the marker fps (51 =
+  the stimulus-video reference); the browser renders at the monitor refresh, but the pulse
+  geometry stays identical to the reference videos.
+-->
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#141b23; --panel-2:#0f151c; --border:#26313d;
+    --ink:#dbe4ee; --muted:#8ea0b5; --faint:#5c6b7d;
+    --accent:#4dd0c4;          /* teal — chosen, cool, scientific */
+    --go:#7ee787;              /* present / active */
+    --arm:#f0b429;             /* armed / warning (v3 later) */
+    --danger:#ff6b6b;          /* abort */
+    --radius:10px;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+       font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+
+  /* ---- STIMULUS ROLE: fullscreen canvas, nothing else ---- */
+  body.stim{background:#000;cursor:none}
+  body.stim #panel{display:none}
+  body.stim #stageWrap{position:fixed;inset:0;padding:0;border:0;border-radius:0}
+  body.stim #gl{width:100vw;height:100vh;border-radius:0}
+  body.stim #stageHint{display:none}
+
+  /* ---- CONTROL ROLE: operator cockpit ---- */
+  #app{display:grid;grid-template-columns:minmax(320px,380px) 1fr;gap:18px;
+       height:100vh;padding:18px}
+  @media (max-width:820px){#app{grid-template-columns:1fr;height:auto}}
+
+  #panel{display:flex;flex-direction:column;gap:14px;min-width:0;overflow:auto;padding-right:4px}
+  header h1{margin:0;font-size:15px;letter-spacing:.14em;text-transform:uppercase;
+            color:var(--muted);font-weight:600}
+  header .ver{color:var(--accent);font-family:var(--mono);font-size:12px}
+
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:14px}
+  .card h2{margin:0 0 10px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+
+  .state-row{display:flex;align-items:center;gap:10px}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--faint);box-shadow:0 0 0 0 transparent}
+  .dot.grey{background:var(--muted)}
+  .dot.on{background:var(--go);box-shadow:0 0 12px 1px color-mix(in oklab,var(--go),transparent 40%)}
+  .state-name{font-family:var(--mono);font-size:16px;letter-spacing:.04em}
+  .state-sub{color:var(--muted);font-family:var(--mono);font-size:12px;margin-left:auto}
+
+  .presets{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .preset{appearance:none;border:1px solid var(--border);background:var(--panel-2);color:var(--ink);
+          border-radius:8px;padding:9px 6px;cursor:pointer;font-family:var(--mono);font-size:12px;
+          display:flex;flex-direction:column;align-items:center;gap:3px;transition:.12s}
+  .preset:hover{border-color:var(--accent);color:#fff}
+  .preset:active{transform:translateY(1px)}
+  .preset .ori{font-size:15px;font-weight:600}
+  .preset .mv{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .preset .key{position:absolute} /* placeholder */
+  .preset .kbd{font-size:9px;color:var(--faint)}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;align-items:center}
+  label.f{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted)}
+  label.f .val{color:var(--ink);font-family:var(--mono);font-size:12px}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  input[type=number],select{width:100%;background:var(--panel-2);border:1px solid var(--border);
+        color:var(--ink);border-radius:6px;padding:6px 8px;font-family:var(--mono);font-size:12px}
+  .seg{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden}
+  .seg button{flex:1;background:var(--panel-2);border:0;color:var(--muted);padding:7px;cursor:pointer;
+              font-family:var(--mono);font-size:12px}
+  .seg button.sel{background:var(--accent);color:#04201d;font-weight:600}
+
+  .actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  button.big{border:0;border-radius:9px;padding:14px;font-size:14px;font-weight:600;cursor:pointer;
+             font-family:var(--sans);letter-spacing:.02em;transition:.12s}
+  button.big:active{transform:translateY(1px)}
+  .present{background:var(--go);color:#052e10;grid-column:1/-1}
+  .present:hover{filter:brightness(1.08)}
+  .grey{background:var(--panel-2);color:var(--ink);border:1px solid var(--border)!important}
+  .abort{background:transparent;color:var(--danger);border:1px solid var(--danger)!important}
+  .abort:hover{background:color-mix(in oklab,var(--danger),transparent 88%)}
+
+  .conn{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .conn .dot2{width:8px;height:8px;border-radius:50%;background:var(--faint)}
+  .conn.ok .dot2{background:var(--go)}
+  .linkbtn{appearance:none;background:transparent;border:1px solid var(--border);color:var(--accent);
+           border-radius:6px;padding:6px 10px;cursor:pointer;font-family:var(--mono);font-size:12px}
+  .linkbtn:hover{border-color:var(--accent)}
+
+  /* ---- stage (mirror in control, fullscreen in stim) ---- */
+  #stageWrap{background:#000;border:1px solid var(--border);border-radius:var(--radius);
+             overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center}
+  #gl{display:block;width:100%;height:100%;background:#000}
+  #stageHint{position:absolute;left:12px;bottom:10px;font-family:var(--mono);font-size:11px;
+             color:var(--muted);background:color-mix(in oklab,#000,transparent 25%);
+             padding:4px 8px;border-radius:6px;pointer-events:none}
+  /* fullscreen-here: the mirror BECOMES the stimulus — strip chrome the mouse must not see */
+  #stageWrap:fullscreen{border:0;border-radius:0}
+  #stageWrap:fullscreen #stageHint{display:none}
+  #stageWrap:fullscreen #gl{width:100vw;height:100vh}
+
+  /* ---- log ---- */
+  #logCard{max-height:220px;display:flex;flex-direction:column}
+  .logtools{display:flex;gap:8px;margin-bottom:8px}
+  .logtools button{background:var(--panel-2);border:1px solid var(--border);color:var(--muted);
+       border-radius:6px;padding:5px 9px;cursor:pointer;font-family:var(--mono);font-size:11px}
+  .logtools button:hover{color:var(--ink);border-color:var(--accent)}
+  .logscroll{overflow:auto;border:1px solid var(--border);border-radius:8px}
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px}
+  th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--panel-2);white-space:nowrap}
+  th{position:sticky;top:0;background:var(--panel);color:var(--faint);font-weight:600;
+     text-transform:uppercase;letter-spacing:.08em;font-size:10px}
+  td{color:var(--ink)}
+  tr:last-child td{border-bottom:0}
+  .type-grey{color:var(--muted)} .type-still{color:var(--accent)} .type-moving{color:var(--go)}
+  .hint{color:var(--faint);font-size:11px}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- ============ OPERATOR PANEL (control role only) ============ -->
+  <div id="panel">
+    <header>
+      <h1>Grating Stimulator <span class="ver">v1 · manual</span></h1>
+    </header>
+
+    <div class="card">
+      <div class="state-row">
+        <span class="dot grey" id="stateDot"></span>
+        <span class="state-name" id="stateName">GREY</span>
+        <span class="state-sub" id="stateSub">idle</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Stimulus screen</h2>
+      <div class="conn" id="conn">
+        <span class="dot2"></span><span id="connText">not opened</span>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="linkbtn" id="openStim">Open stimulus window ↗</button>
+        <button class="linkbtn" id="fsHere">Fullscreen here ⤢</button>
+      </div>
+      <p class="hint" style="margin:8px 0 0">Drag the popup to the mouse's monitor, then it goes fullscreen.
+      No second monitor? Use “Fullscreen here”.</p>
+    </div>
+
+    <div class="card">
+      <h2>Quick gratings <span class="hint">(keys 1–8)</span></h2>
+      <div class="presets" id="presets"></div>
+    </div>
+
+    <div class="card">
+      <h2>Custom grating</h2>
+      <div class="grid2">
+        <label class="f">Orientation <span class="val" id="oriVal">0°</span>
+          <input type="range" id="ori" min="0" max="345" step="15" value="0"></label>
+        <label class="f">Motion
+          <div class="seg" id="moveSeg">
+            <button data-mv="moving" class="sel">moving</button>
+            <button data-mv="still">still</button>
+          </div></label>
+        <label class="f">Spatial freq (cyc/px) <span class="val" id="sfVal">0.020</span>
+          <input type="range" id="sf" min="0.005" max="0.100" step="0.001" value="0.02"></label>
+        <label class="f">Temporal freq (Hz) <span class="val" id="tfVal">2.0</span>
+          <input type="range" id="tf" min="0" max="8" step="0.5" value="2"></label>
+        <label class="f">Contrast <span class="val" id="ctVal">1.00</span>
+          <input type="range" id="ct" min="0" max="1" step="0.05" value="1"></label>
+        <label class="f">Duration (s)
+          <input type="number" id="dur" min="0.5" max="60" step="0.5" value="4"></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Queue <span class="hint">(<span id="qCount">0</span> items — run in order, grey between)</span></h2>
+      <div class="grid2" style="margin-bottom:10px">
+        <label class="f">Grey between (s) <span class="val" id="gbVal">4.0</span>
+          <input type="range" id="greyBetween" min="0" max="30" step="0.5" value="4"></label>
+        <div style="display:flex;gap:8px;align-items:flex-end">
+          <button class="linkbtn" id="qAdd">+ Add current</button>
+          <button class="linkbtn" id="qSweep">+ 0–315 sweep</button>
+          <button class="linkbtn" id="qClear">Clear</button>
+        </div>
+      </div>
+      <div class="logscroll" style="max-height:150px">
+        <table><thead><tr><th>#</th><th>type</th><th>ori</th><th>dur</th><th></th></tr></thead>
+          <tbody id="queueBody"></tbody></table>
+      </div>
+      <button class="big grey" id="qRun" style="width:100%;margin-top:10px">▶ Run queue</button>
+    </div>
+
+    <div class="actions">
+      <button class="big present" id="present">▶ Present  <span class="hint" style="color:#0a3">(Space)</span></button>
+      <button class="big grey" id="toGrey">Grey (G)</button>
+      <button class="big grey" id="toBlack">Black (B)</button>
+      <button class="big abort" id="abort" style="grid-column:1/-1">■ Abort → grey (Esc)</button>
+    </div>
+
+    <div class="card" id="logCard">
+      <h2>Trial log</h2>
+      <div class="logtools">
+        <button id="expProto">Export protocol (MAT)</button>
+        <button id="expCsv">Export CSV</button>
+        <button id="expJson">Export JSON</button>
+        <button id="clearLog">Clear</button>
+      </div>
+      <div class="logscroll">
+        <table>
+          <thead><tr><th>#</th><th>wall-clock</th><th>type</th><th>ori</th><th>dur</th>
+            <th>SF</th><th>TF</th><th>C</th></tr></thead>
+          <tbody id="logBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Screen &amp; stimulus <span class="hint">(matched to our videos)</span></h2>
+      <div class="grid2">
+        <label class="f">Grey level (0–255) <span class="val" id="greyVal">128</span>
+          <input type="range" id="grey" min="0" max="1" step="0.004" value="0.502"></label>
+        <label class="f">Marker size (reserve ratio) <span class="val" id="ratioVal">0.0185</span>
+          <input type="range" id="ratio" min="0.005" max="0.06" step="0.0005" value="0.0185"></label>
+        <label class="f">Frame width (px) <span class="val" id="frameWVal">150</span>
+          <input type="range" id="frameW" min="50" max="512" step="1" value="150"></label>
+        <label class="f">Frame height (px) <span class="val" id="frameHVal">104</span>
+          <input type="range" id="frameH" min="50" max="512" step="1" value="104"></label>
+        <label class="f">Marker corner
+          <select id="corner">
+            <option value="tr" selected>top-right</option>
+            <option value="tl">top-left</option>
+            <option value="br">bottom-right</option>
+            <option value="bl">bottom-left</option>
+          </select></label>
+        <label class="f">Pixelate to frame grid
+          <span style="font-size:12px"><input type="checkbox" id="pixelate"> match video resolution (off = smooth sinusoid)</span></label>
+        <label class="f">Stimulus width (px) <span class="val" id="outWVal">800</span>
+          <input type="range" id="outW" min="100" max="3840" step="10" value="800"></label>
+        <label class="f">Stimulus height (px) <span class="val" id="outHVal">554</span>
+          <input type="range" id="outH" min="100" max="2160" step="10" value="554"></label>
+        <label class="f">Fill screen
+          <span style="font-size:12px"><input type="checkbox" id="fillScreen" checked> ignore size, fill screen</span></label>
+      </div>
+      <p class="hint" style="margin:8px 0 0">Spatial freq (cyc/px) × frame width = cycles across the
+      stimulus. Our videos: 0.02 × 150 = 3 cycles. Gamma LUT not applied yet.</p>
+    </div>
+  </div>
+
+  <!-- ============ STAGE: mirror (control) / fullscreen (stim) ============ -->
+  <div id="stageWrap">
+    <canvas id="gl"></canvas>
+    <div id="stageHint">live mirror — what the mouse sees</div>
+  </div>
+</div>
+
+<script src="protocol.js"></script>
+<script>
+"use strict";
+/* ============================================================================
+   Marker encoding — MUST match lib/stimulus/visual.py generator.
+   ============================================================================ */
+// Marker + stimulus constants come from protocol.js (single source, node-tested,
+// values matched to the pipeline generator).
+const _M = window.STIMPROTOCOL.MARKER, _S = window.STIMPROTOCOL.STIM;
+const PULSE_WIDTH_S = _M.PULSE_WIDTH_S, PULSE_PERIOD_S = _M.PULSE_PERIOD_S;
+const TYPE_PULSES = _M.TYPE_PULSES, MARKER_RGB = _M.RGB;
+const CORNER_ID = { tr:0, tl:1, br:2, bl:3 };
+
+/* Presets = the 8-orientation moving-grating set, in OUR stimulus parameters
+   (spatial freq in cyc/px on the 104×150 frame → 3 cycles across the width). */
+const PRESETS = [0,45,90,135,180,225,270,315].map(o => ({
+  name:`${o}°`, orientation:o, moving:true,
+  sf:_S.SPATIAL_FREQ_CPP, tf:2.0, contrast:1.0, duration:4.0
+}));
+
+const ROLE = (location.hash === '#stim') ? 'stim' : 'control';
+document.body.classList.toggle('stim', ROLE === 'stim');
+
+/* ---------------------------------------------------------------------------
+   WebGL grating renderer (used by both roles).
+   The grating is defined on a VIRTUAL frame (default 104×150 px, spatial freq in
+   cyc/px) exactly like our stimulus videos, then scaled into a configurable output
+   rect (letterboxed on black). Seamless: grey/black are just contrast 0 at a chosen
+   mean luminance. All transitions are uniform changes — no rebuild, no black flash.
+   Timing is owned by the CONTROL window (setTimeout), not this rAF loop.
+--------------------------------------------------------------------------- */
+function createRenderer(canvas){
+  const gl = canvas.getContext('webgl', {antialias:false, preserveDrawingBuffer:false});
+  if(!gl){ document.body.innerHTML = '<p style="color:#f66;padding:20px">WebGL not available.</p>'; return null; }
+
+  const VS = `attribute vec2 a; void main(){ gl_Position = vec4(a,0.0,1.0); }`;
+  const FS = `
+    precision highp float;
+    uniform vec2  uRes;        // canvas px
+    uniform vec2  uOutPos;     // stimulus rect bottom-left, px
+    uniform vec2  uOutSize;    // stimulus rect size, px
+    uniform vec2  uFrame;      // virtual frame (W,H) px
+    uniform float uSF;         // cycles per frame-px
+    uniform float uTheta;      // orientation, radians
+    uniform float uPhase;      // radians
+    uniform float uContrast;   // 0..1 (0 = flat field at uMeanLum)
+    uniform float uMeanLum;    // 0..1 (grey level, or 0 for black)
+    uniform float uPixelate;   // 1 = quantize to frame pixels (match the video grid)
+    uniform int   uMarker;     // 1 = pulse ON
+    uniform vec3  uMarkerRGB;
+    uniform float uMarkerSide; // marker square side, frame px
+    uniform int   uCorner;     // 0 tr, 1 tl, 2 br, 3 bl (image coords, y-down)
+    void main(){
+      vec2 p = gl_FragCoord.xy;                 // origin bottom-left
+      if(p.x < uOutPos.x || p.x >= uOutPos.x+uOutSize.x ||
+         p.y < uOutPos.y || p.y >= uOutPos.y+uOutSize.y){
+        gl_FragColor = vec4(0.0,0.0,0.0,1.0); return;   // letterbox = black
+      }
+      // map into the virtual frame; y is flipped so fy=0 is the TOP (image convention)
+      float fx = (p.x - uOutPos.x)/uOutSize.x * uFrame.x;
+      float fy = (1.0 - (p.y - uOutPos.y)/uOutSize.y) * uFrame.y;
+      if(uPixelate > 0.5){ fx = floor(fx)+0.5; fy = floor(fy)+0.5; }
+      float S = uMarkerSide;
+      bool xr = fx >= uFrame.x - S, xl = fx < S, yt = fy < S, yb = fy >= uFrame.y - S;
+      bool inMk = (uCorner==0 && xr && yt) || (uCorner==1 && xl && yt)
+               || (uCorner==2 && xr && yb) || (uCorner==3 && xl && yb);
+      if(inMk){ gl_FragColor = (uMarker==1) ? vec4(uMarkerRGB,1.0) : vec4(0.0,0.0,0.0,1.0); return; }
+      float d = fx*cos(uTheta) + fy*sin(uTheta);
+      float g = sin(6.2831853*uSF*d + uPhase);
+      float L = clamp(uMeanLum*(1.0 + uContrast*g), 0.0, 1.0);
+      gl_FragColor = vec4(L, L, L, 1.0);
+    }`;
+  function sh(type,src){ const s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s);
+    if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
+  const prog = gl.createProgram();
+  gl.attachShader(prog, sh(gl.VERTEX_SHADER,VS));
+  gl.attachShader(prog, sh(gl.FRAGMENT_SHADER,FS));
+  gl.linkProgram(prog); gl.useProgram(prog);
+  const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(prog,'a'); gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+  const U = n => gl.getUniformLocation(prog,n);
+  const u = {res:U('uRes'),outPos:U('uOutPos'),outSize:U('uOutSize'),frame:U('uFrame'),
+             sf:U('uSF'),theta:U('uTheta'),phase:U('uPhase'),ct:U('uContrast'),lum:U('uMeanLum'),
+             pix:U('uPixelate'),mk:U('uMarker'),mkrgb:U('uMarkerRGB'),mkside:U('uMarkerSide'),corner:U('uCorner')};
+
+  const st = {
+    contrast:0, moving:false, theta:0, sf:_S.SPATIAL_FREQ_CPP, tf:2, phase:0,
+    greyLevel:_S.GREY_LEVEL, meanLum:_S.GREY_LEVEL,      // current background mean (grey or 0=black)
+    frameW:_S.FRAME_W, frameH:_S.FRAME_H, pixelate:false,   // off = smooth sinusoidal grating
+    ratio:_M.RESERVE_RATIO, corner:_M.CORNER,
+    outW:0, outH:0, fill:true,                            // fill => stimulus fills the canvas
+    markerOnset:null, markerCount:0,
+  };
+  const cbs = { onEnded:()=>{} };   // kept for API compatibility; timing is control-owned
+
+  function resize(){
+    const dpr = Math.min(window.devicePixelRatio||1, 2);
+    const w = Math.round(canvas.clientWidth*dpr), h = Math.round(canvas.clientHeight*dpr);
+    if(canvas.width!==w || canvas.height!==h){ canvas.width=w; canvas.height=h; }
+    gl.viewport(0,0,canvas.width,canvas.height);
+  }
+  function outRect(){
+    if(st.fill || !(st.outW>0 && st.outH>0)) return {x:0,y:0,w:canvas.width,h:canvas.height};
+    const dpr = canvas.width / Math.max(canvas.clientWidth,1);
+    const w = Math.min(st.outW*dpr, canvas.width), h = Math.min(st.outH*dpr, canvas.height);
+    return {x:(canvas.width-w)/2, y:(canvas.height-h)/2, w, h};
+  }
+  const markerSide = () => window.STIMPROTOCOL.markerSidePx(st.frameH, st.frameW, st.ratio);
+
+  let last = performance.now();
+  function frame(now){
+    const dt = (now-last)/1000; last=now;
+    if(st.moving && st.contrast>0) st.phase += 2*Math.PI*st.tf*dt;
+
+    let marker = 0;
+    if(st.markerOnset!==null){
+      const t = (now-st.markerOnset)/1000;
+      for(let k=0;k<st.markerCount;k++){ const s=k*PULSE_PERIOD_S; if(t>=s && t<s+PULSE_WIDTH_S){marker=1;break;} }
+      if(t > st.markerCount*PULSE_PERIOD_S) st.markerOnset=null;
+    }
+
+    resize();
+    const r = outRect();
+    gl.uniform2f(u.res, canvas.width, canvas.height);
+    gl.uniform2f(u.outPos, r.x, r.y);
+    gl.uniform2f(u.outSize, r.w, r.h);
+    gl.uniform2f(u.frame, st.frameW, st.frameH);
+    gl.uniform1f(u.sf, st.sf);
+    gl.uniform1f(u.theta, st.theta*Math.PI/180);
+    gl.uniform1f(u.phase, st.phase);
+    gl.uniform1f(u.ct, st.contrast);
+    gl.uniform1f(u.lum, st.meanLum);
+    gl.uniform1f(u.pix, st.pixelate?1:0);
+    gl.uniform1i(u.mk, marker);
+    gl.uniform3fv(u.mkrgb, MARKER_RGB);
+    gl.uniform1f(u.mkside, markerSide());
+    gl.uniform1i(u.corner, CORNER_ID[st.corner]!=null ? CORNER_ID[st.corner] : 0);
+    gl.drawArrays(gl.TRIANGLES,0,3);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  function present(tr){                    // tr: {type,orientation,sf,tf,contrast,moving}
+    st.theta = tr.orientation; if(tr.sf!=null) st.sf = tr.sf; st.tf = tr.tf;
+    st.contrast = tr.contrast; st.moving = tr.moving; st.phase = 0;
+    st.meanLum = st.greyLevel;                          // grating oscillates around grey
+    st.markerCount = tr.moving ? TYPE_PULSES.moving : TYPE_PULSES.still;
+    st.markerOnset = performance.now();
+  }
+  function toGrey(fireMarker){
+    st.contrast = 0; st.moving = false; st.meanLum = st.greyLevel;
+    if(fireMarker){ st.markerCount = TYPE_PULSES.grey; st.markerOnset = performance.now(); }
+  }
+  function toBlack(){ st.contrast = 0; st.moving = false; st.meanLum = 0; /* rest screen, no marker */ }
+  function config(c){
+    if(c.greyLevel!=null){ st.greyLevel = c.greyLevel; if(st.contrast===0 && st.meanLum>0) st.meanLum = c.greyLevel; }
+    if(c.sf!=null) st.sf = c.sf;
+    if(c.frameW!=null) st.frameW = c.frameW;
+    if(c.frameH!=null) st.frameH = c.frameH;
+    if(c.pixelate!=null) st.pixelate = !!c.pixelate;
+    if(c.ratio!=null) st.ratio = c.ratio;
+    if(c.corner!=null) st.corner = c.corner;
+    if(c.outW!=null) st.outW = c.outW;
+    if(c.outH!=null) st.outH = c.outH;
+    if(c.fill!=null) st.fill = !!c.fill;
+  }
+
+  return { present, toGrey, toBlack, config, st, cbs };
+}
+
+const canvas = document.getElementById('gl');
+const R = createRenderer(canvas);
+
+/* ===========================================================================
+   STIM ROLE: obey the operator over postMessage; go fullscreen on demand.
+=========================================================================== */
+if(ROLE === 'stim'){
+  document.title = 'Grating — STIMULUS';
+  R.cbs.onEnded = (id)=>{ try{ window.opener && window.opener.postMessage({evt:'ended',trialId:id},'*'); }catch(e){} };
+  window.addEventListener('message', ev=>{
+    const m = ev.data||{};
+    if(m.cmd==='present'){ R.present(m.trial);
+      try{ window.opener.postMessage({evt:'onset',trialId:m.trial.trialId,t:Date.now()},'*'); }catch(e){} }
+    else if(m.cmd==='grey'){ R.toGrey(true); }
+    else if(m.cmd==='black'){ R.toBlack(); }
+    else if(m.cmd==='config'){ R.config(m.cfg); }
+    else if(m.cmd==='fullscreen'){ document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen(); }
+  });
+  document.addEventListener('click', ()=>{ document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen(); });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ R.toGrey(true);
+    try{ window.opener.postMessage({evt:'abort'},'*'); }catch(_){} } });
+  try{ window.opener && window.opener.postMessage({evt:'ready'},'*'); }catch(e){}
+
+/* ===========================================================================
+   CONTROL ROLE: the operator cockpit.
+=========================================================================== */
+} else {
+  document.getElementById('stageHint').textContent = 'live mirror — what the mouse sees';
+  let stimWin = null, trialSeq = 0;
+  const conn = document.getElementById('conn'), connText = document.getElementById('connText');
+  const stateDot = document.getElementById('stateDot'), stateName = document.getElementById('stateName'),
+        stateSub = document.getElementById('stateSub');
+
+  const _S2 = window.STIMPROTOCOL.STIM, _M2 = window.STIMPROTOCOL.MARKER;
+  const cfg = { greyLevel:_S2.GREY_LEVEL, sf:_S2.SPATIAL_FREQ_CPP, frameW:_S2.FRAME_W, frameH:_S2.FRAME_H,
+                pixelate:false, ratio:_M2.RESERVE_RATIO, corner:_M2.CORNER, outW:800, outH:554, fill:true };
+  R.config(cfg);
+  let durTimer = null, advanceTimer = null;
+
+  function sendStim(msg){ if(stimWin && !stimWin.closed){ stimWin.postMessage(msg,'*'); return true; } return false; }
+  function setState(name, sub, cls){
+    stateName.textContent=name; stateSub.textContent=sub||'';
+    stateDot.className = 'dot '+(cls||'grey');
+  }
+
+  /* ---- current custom-grating params from the form ---- */
+  function formTrial(){
+    return {
+      type: document.querySelector('#moveSeg .sel').dataset.mv==='moving' ? 'moving':'still',
+      orientation:+document.getElementById('ori').value,
+      sf:+document.getElementById('sf').value,
+      tf:+document.getElementById('tf').value,
+      contrast:+document.getElementById('ct').value,
+      duration:+document.getElementById('dur').value,
+      moving: document.querySelector('#moveSeg .sel').dataset.mv==='moving',
+    };
+  }
+  /* Reflect a preset into the custom form, so "+ Add current" queues THAT orientation. */
+  function setForm(p){
+    const ori=document.getElementById('ori'); ori.value=p.orientation;
+    ori.dispatchEvent(new Event('input'));                 // refresh the °-display
+    document.querySelectorAll('#moveSeg button').forEach(x=>
+      x.classList.toggle('sel', x.dataset.mv===(p.moving?'moving':'still')));
+  }
+  function present(tr){
+    tr.trialId = ++trialSeq;
+    clearTimeout(durTimer);
+    closeBlock(); openBlock(tr.type, tr);
+    R.present(tr);                              // mirror
+    sendStim({cmd:'present', trial:tr});
+    logTrial(tr);
+    setState(tr.moving?'MOVING':'STILL', `${tr.orientation}° · ${tr.duration}s`, 'on');
+    if(tr.duration>0) durTimer = setTimeout(gratingEnded, tr.duration*1000);   // control owns timing
+  }
+  function gratingEnded(){                       // a timed grating finished → grey, then advance
+    applyGrey(true);
+    if(running) advanceTimer = setTimeout(presentNext, (+greyBetweenEl.value||0)*1000);
+  }
+  function applyGrey(fireMarker){
+    closeBlock(); openBlock('grey', null);
+    R.toGrey(fireMarker); sendStim({cmd:'grey'}); setState('GREY','idle','grey');
+  }
+  function applyBlack(){
+    closeBlock(); openBlock('black', null);
+    R.toBlack(); sendStim({cmd:'black'}); setState('BLACK','rest','grey');
+  }
+  function greyBtn(){ if(running) stopQueue(); clearTimeout(durTimer); applyGrey(true); }
+  function blackBtn(){ if(running) stopQueue(); clearTimeout(durTimer); applyBlack(); }
+
+  /* ---- presets ---- */
+  const pc = document.getElementById('presets');
+  PRESETS.forEach((p,i)=>{
+    const b=document.createElement('button'); b.className='preset';
+    b.innerHTML=`<span class="ori">${p.orientation}°</span><span class="mv">${p.moving?'moving':'still'}</span><span class="kbd">${i+1}</span>`;
+    b.onclick=()=>{ setForm(p); present({...p, type:p.moving?'moving':'still'}); };
+    pc.appendChild(b);
+  });
+
+  /* ---- custom form wiring ---- */
+  const bind=(id,valId,fmt)=>{ const el=document.getElementById(id),v=document.getElementById(valId);
+    const upd=()=>{ v.textContent=fmt(el.value); }; el.addEventListener('input',upd); upd(); };
+  bind('ori','oriVal',x=>x+'°'); bind('sf','sfVal',x=>ean(x)); bind('tf','tfVal',x=>(+x).toFixed(1));
+  bind('ct','ctVal',x=>(+x).toFixed(2));
+  bind('greyBetween','gbVal',x=>(+x).toFixed(1));
+  function ean(x){ return (+x).toFixed(3); }
+  document.querySelectorAll('#moveSeg button').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('#moveSeg button').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); });
+  bind('grey','greyVal',x=>Math.round(+x*255));
+  bind('frameW','frameWVal',x=>x); bind('frameH','frameHVal',x=>x);
+  bind('outW','outWVal',x=>x); bind('outH','outHVal',x=>x);
+  bind('ratio','ratioVal',x=>(+x).toFixed(4));
+  function pushCfg(){
+    cfg.greyLevel=+document.getElementById('grey').value;
+    cfg.sf=+document.getElementById('sf').value;
+    cfg.frameW=+document.getElementById('frameW').value;
+    cfg.frameH=+document.getElementById('frameH').value;
+    cfg.pixelate=document.getElementById('pixelate').checked;
+    cfg.ratio=+document.getElementById('ratio').value;
+    cfg.corner=document.getElementById('corner').value;
+    cfg.fill=document.getElementById('fillScreen').checked;
+    cfg.outW=+document.getElementById('outW').value;
+    cfg.outH=+document.getElementById('outH').value;
+    R.config(cfg); sendStim({cmd:'config',cfg});   // config live-updates the grey mean too
+  }
+  ['grey','sf','frameW','frameH','pixelate','ratio','corner','fillScreen','outW','outH']
+    .forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener('input',pushCfg); });
+
+  /* ---- buttons ---- */
+  document.getElementById('present').onclick=()=>present(formTrial());
+  document.getElementById('toGrey').onclick=greyBtn;
+  document.getElementById('toBlack').onclick=blackBtn;
+  document.getElementById('abort').onclick=greyBtn;
+  document.getElementById('openStim').onclick=()=>{
+    stimWin = window.open(location.href.split('#')[0]+'#stim','stimwin','width=960,height=600');
+    connText.textContent='opening…';
+  };
+  document.getElementById('fsHere').onclick=()=>{
+    const el=document.getElementById('stageWrap');
+    el.requestFullscreen && el.requestFullscreen();
+  };
+
+  window.addEventListener('message', ev=>{
+    const m=ev.data||{};
+    if(m.evt==='ready'){ conn.classList.add('ok'); connText.textContent='connected';
+      sendStim({cmd:'config',cfg}); }
+    else if(m.evt==='abort'){ setState('GREY','idle','grey'); }
+  });
+  setInterval(()=>{ if(stimWin && stimWin.closed){ conn.classList.remove('ok'); connText.textContent='window closed'; stimWin=null; } }, 800);
+
+  /* ---- keyboard ---- */
+  document.addEventListener('keydown', e=>{
+    if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
+    if(e.key==='Escape'||e.key==='g'||e.key==='G'){ e.preventDefault(); greyBtn(); }
+    else if(e.key==='b'||e.key==='B'){ e.preventDefault(); blackBtn(); }
+    else if(e.key===' '){ e.preventDefault(); present(formTrial()); }
+    else if(e.key>='1'&&e.key<='8'){ const p=PRESETS[+e.key-1]; if(p){ setForm(p); present({...p,type:p.moving?'moving':'still'}); } }
+  });
+
+  /* ---- trial log ---- */
+  const rows=[]; const logBody=document.getElementById('logBody');
+  function logTrial(tr){
+    const now=new Date(); const wall=now.toLocaleTimeString('uk-UA',{hour12:false})+'.'+String(now.getMilliseconds()).padStart(3,'0');
+    const row={n:tr.trialId, wall, type:tr.type, ori:tr.orientation, dur:tr.duration, sf:tr.sf, tf:tr.tf, contrast:tr.contrast, ms:now.getTime()};
+    rows.push(row);
+    const el=document.createElement('tr');
+    el.innerHTML=`<td>${row.n}</td><td>${wall}</td><td class="type-${tr.type}">${tr.type}</td>
+      <td>${tr.orientation}°</td><td>${tr.duration}s</td><td>${tr.sf.toFixed(3)}</td>
+      <td>${tr.tf.toFixed(1)}</td><td>${tr.contrast.toFixed(2)}</td>`;
+    logBody.prepend(el);
+  }
+  document.getElementById('clearLog').onclick=()=>{ rows.length=0; logBody.innerHTML=''; };
+  document.getElementById('expJson').onclick=()=>download('stimlog.json', JSON.stringify(rows,null,2), 'application/json');
+  document.getElementById('expCsv').onclick=()=>{
+    const head='n,wallclock,unix_ms,type,orientation_deg,duration_s,spatial_freq_cpd,temporal_freq_hz,contrast';
+    const body=rows.map(r=>[r.n,r.wall,r.ms,r.type,r.ori,r.dur,r.sf,r.tf,r.contrast].join(',')).join('\n');
+    download('stimlog.csv', head+'\n'+body, 'text/csv');
+  };
+  function download(name,text,mime){ const b=new Blob([text],{type:mime}); const a=document.createElement('a');
+    a.href=URL.createObjectURL(b); a.download=name; a.click(); URL.revokeObjectURL(a.href); }
+
+  /* ---- played-protocol bookkeeping: record blocks in order (grey + gratings) with
+          their actual durations, so the export overlays onto the recording MAT ---- */
+  const playedEvents = []; let curBlock = null;
+  function openBlock(type, tr){
+    curBlock = { type, orientation: tr?tr.orientation:null, sf: tr?tr.sf:null,
+                 tf: tr?tr.tf:null, contrast: tr?tr.contrast:null, startMs: performance.now() };
+  }
+  function snapshotBlock(){
+    if(!curBlock) return null;
+    const dur = (performance.now()-curBlock.startMs)/1000;
+    if(dur <= 0.02) return null;
+    return { type:curBlock.type, orientation:curBlock.orientation, sf:curBlock.sf,
+             tf:curBlock.tf, contrast:curBlock.contrast, duration_s:dur };
+  }
+  function closeBlock(){ const b = snapshotBlock(); if(b) playedEvents.push(b); curBlock = null; }
+  function exportProtocol(){
+    const snap = playedEvents.slice();
+    const cur = snapshotBlock(); if(cur) snap.push(cur);
+    if(!snap.length){ alert('Nothing played yet.'); return; }
+    const proto = window.STIMPROTOCOL.buildProtocol(snap,
+      { name:'played_protocol', generated:new Date().toISOString() });
+    download('protocol_played.json', JSON.stringify(proto,null,2), 'application/json');
+  }
+  document.getElementById('expProto').onclick = exportProtocol;
+
+  /* ---- queue / sequencer: runs items in order, grey between, auto-advancing ---- */
+  const queue = []; const qBody = document.getElementById('queueBody');
+  const greyBetweenEl = document.getElementById('greyBetween');
+  let running = false, runIdx = 0;
+  function renderQueue(){
+    qBody.innerHTML = '';
+    queue.forEach((it,i)=>{
+      const row = document.createElement('tr');
+      row.innerHTML = `<td>${i+1}</td><td class="type-${it.type}">${it.type}</td>`+
+        `<td>${it.orientation}°</td><td>${it.duration}s</td>`+
+        `<td><button data-i="${i}" class="qdel linkbtn" style="padding:2px 7px">✕</button></td>`;
+      qBody.appendChild(row);
+    });
+    qBody.querySelectorAll('.qdel').forEach(b=>b.onclick=()=>{
+      if(running) return; queue.splice(+b.dataset.i,1); renderQueue(); });
+    document.getElementById('qCount').textContent = queue.length;
+  }
+  function addToQueue(tr){
+    queue.push({ type:tr.type, orientation:tr.orientation, sf:tr.sf, tf:tr.tf,
+                 contrast:tr.contrast, duration:tr.duration, moving:tr.moving });
+    renderQueue();
+  }
+  function presentNext(){
+    if(!running) return;
+    if(runIdx >= queue.length){ stopQueue(); return; }
+    present(queue[runIdx++]);          // mirror auto-ends after its duration -> onEnded advances
+  }
+  function runQueue(){
+    if(running || !queue.length) return;
+    running = true; runIdx = 0;
+    document.getElementById('qRun').textContent = '■ Stop queue';
+    applyGrey(true);                    // lead-in grey
+    advanceTimer = setTimeout(presentNext, (+greyBetweenEl.value||0)*1000);
+  }
+  function stopQueue(){
+    running = false; clearTimeout(advanceTimer); clearTimeout(durTimer);
+    document.getElementById('qRun').textContent = '▶ Run queue';
+    applyGrey(true);
+  }
+  document.getElementById('qAdd').onclick = ()=>addToQueue(formTrial());
+  document.getElementById('qSweep').onclick = ()=>{
+    const base = formTrial();                    // current sf/tf/contrast/duration
+    [0,45,90,135,180,225,270,315].forEach(o =>
+      addToQueue({...base, orientation:o, moving:true, type:'moving'}));
+  };
+  document.getElementById('qClear').onclick = ()=>{ if(!running){ queue.length=0; renderQueue(); } };
+  document.getElementById('qRun').onclick = ()=>{ running ? stopQueue() : runQueue(); };
+
+  openBlock('grey', null);   // the session starts on grey
+  setState('GREY','idle','grey');
+}
+</script>
+</body>
+</html>
