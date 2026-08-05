@@ -1,9 +1,15 @@
 # stimulus-runner
 
 An interactive, browser-based **drifting/static grating presenter** for two-photon rig
-experiments. A grey screen you switch — seamlessly — to a grating of a chosen orientation,
-spatial/temporal frequency, contrast, and duration, then back to grey. Queue gratings to
-run in sequence, and it writes the played protocol so it overlays onto the recording.
+experiments. A grey (or black) screen you switch — seamlessly — to a grating of a chosen
+orientation, spatial/temporal frequency, contrast, and duration, then back. Build a
+sequence of gratings and grey/black rest blocks, run it in order, and it writes the played
+protocol so it overlays onto the recording.
+
+Gratings match the reference stimulus videos: a **binary (square-wave)** grating by default
+(sinusoid is an option), defined in **cycles per pixel** on a virtual frame (default
+104 × 150 px → 0.02 cyc/px = 3 cycles across the width), scaled to a configurable output
+size.
 
 This is **v1 (manual presenter)** — a light replacement for an aging MATLAB stimulus rig.
 A closed-loop camera trigger ("fire when the mouse has been calm ≥ 2 s") is a planned later
@@ -31,34 +37,45 @@ python3 -m http.server 8000    # then open http://localhost:8000
 (Opening the file directly also works, but a local server keeps `postMessage` and
 full-screen well-behaved.)
 
-Keyboard: **Space** present · **G/Esc** grey · **1–8** presets.
+Keyboard: **Space** present · **G/Esc** grey · **B** black · **1–8** presets.
 
-## Seamless grey ↔ grating
+## Seamless grey / black ↔ grating
 
-Grey and grating are the **same** WebGL surface, never torn down: grey is just a grating
-with **contrast = 0**. Switching changes shader uniforms between frames (contrast up, phase
-drifting) — no scene rebuild, no black frame, no flash.
+Grey, black, and grating are the **same** WebGL surface, never torn down: grey is a grating
+at **contrast 0** on the grey mean luminance, black is the same at mean luminance 0.
+Switching changes shader uniforms between frames — no scene rebuild, no black frame, no
+flash.
 
 ```
-L(x,y,t) = L_mean · (1 + C · sin(2π·f·(x·cosθ + y·sinθ) + φ(t)))
+L(x,y,t) = L_mean · (1 + C · wave(2π·f·(x·cosθ + y·sinθ) + φ(t)))
 ```
 
-Spatial frequency is entered in **cycles/degree** and converted to cycles/pixel with the
-rig's pixels-per-degree (set once in *Geometry*). Gamma linearization (LUT) is a v0.5
-calibration step, not yet applied.
+`wave` is a **square wave** by default (thresholded at the midpoint — the same binarization
+the reference videos use), or a sinusoid if you switch *Waveform*. Spatial frequency `f` is
+in **cycles per (frame) pixel**; with the default 150 px width, 0.02 cyc/px is 3 cycles
+across. Grey level, frame size, marker corner/size, output size, and pixelation are all set
+in *Screen & stimulus*. Gamma linearization (LUT) is not yet applied.
+
+## Sequence (grating + grey/black rest blocks)
+
+The sequence is a **literal** list of blocks, each run for its own duration, in order:
+add the current grating, a grey rest block, a black rest block, or a full 0–315° sweep
+(with a grey gap between gratings). This mirrors a real protocol — black pads, grey blocks,
+gratings — so a played sequence maps straight onto the recording.
 
 ## Corner pulse markers (matches the pipeline)
 
-At each onset a **RED** square flashes in the **bottom-right** corner, pulse-coded by
-**count** (mice are red-blind; a photodiode reads it). This reproduces the pipeline's
-generator one-to-one, so the recording's photodiode and the existing decoder read it
-unchanged:
+At each onset a **RED** square flashes in a screen **corner** (top-right by default,
+configurable), pulse-coded by **count** (mice are red-blind; a photodiode reads it). This
+reproduces the pipeline's generator one-to-one, so the recording's photodiode and the
+existing decoder read it unchanged:
 
 | block | marker pulses |
 |-------|---------------|
 | grey  | **1** |
 | static grating | **2** |
 | moving grating | **3** |
+| black (rest) | 0 (no marker) |
 
 Pulse = 3 frames on, 3 frames off, at 51 fps (the legacy stimulus-video reference). These
 constants live in `protocol.js` and are unit-tested against the pipeline values.
@@ -74,9 +91,9 @@ also exports as CSV/JSON.)
 ## What's here
 
 - `index.html` — the app (UI, WebGL renderer, dual-screen wiring, queue, logging).
-- `protocol.js` — the **pure** logic (marker encoding, the played-protocol builder, the
-  queue timeline, the cyc/deg→cyc/px conversion). No DOM/WebGL, so it is unit-tested
-  headless.
+- `protocol.js` — the **pure** logic (marker encoding, stimulus defaults matched to the
+  generator, the played-protocol builder, the sequence timeline). No DOM/WebGL, so it is
+  unit-tested headless.
 - `test/protocol.test.js` — `node test/protocol.test.js` (or `npm test`).
 
 ## Verification

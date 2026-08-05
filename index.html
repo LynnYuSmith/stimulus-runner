@@ -176,6 +176,11 @@
             <button data-mv="moving" class="sel">moving</button>
             <button data-mv="still">still</button>
           </div></label>
+        <label class="f">Waveform
+          <div class="seg" id="waveSeg">
+            <button data-wave="square" class="sel">binary</button>
+            <button data-wave="sinusoid">sinusoid</button>
+          </div></label>
         <label class="f">Spatial freq (cyc/px) <span class="val" id="sfVal">0.020</span>
           <input type="range" id="sf" min="0.005" max="0.100" step="0.001" value="0.02"></label>
         <label class="f">Temporal freq (Hz) <span class="val" id="tfVal">2.0</span>
@@ -188,15 +193,15 @@
     </div>
 
     <div class="card">
-      <h2>Queue <span class="hint">(<span id="qCount">0</span> items — run in order, grey between)</span></h2>
-      <div class="grid2" style="margin-bottom:10px">
-        <label class="f">Grey between (s) <span class="val" id="gbVal">4.0</span>
-          <input type="range" id="greyBetween" min="0" max="30" step="0.5" value="4"></label>
-        <div style="display:flex;gap:8px;align-items:flex-end">
-          <button class="linkbtn" id="qAdd">+ Add current</button>
-          <button class="linkbtn" id="qSweep">+ 0–315 sweep</button>
-          <button class="linkbtn" id="qClear">Clear</button>
-        </div>
+      <h2>Sequence <span class="hint">(<span id="qCount">0</span> blocks — run in order, each for its own duration)</span></h2>
+      <label class="f" style="margin-bottom:8px">Rest / grey-gap duration (s) <span class="val" id="gbVal">4.0</span>
+        <input type="range" id="greyBetween" min="0" max="60" step="0.5" value="4"></label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <button class="linkbtn" id="qAdd">+ grating</button>
+        <button class="linkbtn" id="qGrey">+ grey</button>
+        <button class="linkbtn" id="qBlack">+ black</button>
+        <button class="linkbtn" id="qSweep">+ 0–315 sweep</button>
+        <button class="linkbtn" id="qClear">Clear</button>
       </div>
       <div class="logscroll" style="max-height:150px">
         <table><thead><tr><th>#</th><th>type</th><th>ori</th><th>dur</th><th></th></tr></thead>
@@ -316,6 +321,7 @@ function createRenderer(canvas){
     uniform float uContrast;   // 0..1 (0 = flat field at uMeanLum)
     uniform float uMeanLum;    // 0..1 (grey level, or 0 for black)
     uniform float uPixelate;   // 1 = quantize to frame pixels (match the video grid)
+    uniform float uWaveform;   // 1 = binary square wave (match the videos), 0 = sinusoid
     uniform int   uMarker;     // 1 = pulse ON
     uniform vec3  uMarkerRGB;
     uniform float uMarkerSide; // marker square side, frame px
@@ -337,6 +343,7 @@ function createRenderer(canvas){
       if(inMk){ gl_FragColor = (uMarker==1) ? vec4(uMarkerRGB,1.0) : vec4(0.0,0.0,0.0,1.0); return; }
       float d = fx*cos(uTheta) + fy*sin(uTheta);
       float g = sin(6.2831853*uSF*d + uPhase);
+      if(uWaveform > 0.5) g = (g > 0.0) ? 1.0 : -1.0;   // binary square wave (threshold at mid, = our videos)
       float L = clamp(uMeanLum*(1.0 + uContrast*g), 0.0, 1.0);
       gl_FragColor = vec4(L, L, L, 1.0);
     }`;
@@ -353,12 +360,12 @@ function createRenderer(canvas){
   const U = n => gl.getUniformLocation(prog,n);
   const u = {res:U('uRes'),outPos:U('uOutPos'),outSize:U('uOutSize'),frame:U('uFrame'),
              sf:U('uSF'),theta:U('uTheta'),phase:U('uPhase'),ct:U('uContrast'),lum:U('uMeanLum'),
-             pix:U('uPixelate'),mk:U('uMarker'),mkrgb:U('uMarkerRGB'),mkside:U('uMarkerSide'),corner:U('uCorner')};
+             pix:U('uPixelate'),wave:U('uWaveform'),mk:U('uMarker'),mkrgb:U('uMarkerRGB'),mkside:U('uMarkerSide'),corner:U('uCorner')};
 
   const st = {
     contrast:0, moving:false, theta:0, sf:_S.SPATIAL_FREQ_CPP, tf:2, phase:0,
     greyLevel:_S.GREY_LEVEL, meanLum:_S.GREY_LEVEL,      // current background mean (grey or 0=black)
-    frameW:_S.FRAME_W, frameH:_S.FRAME_H, pixelate:false,   // off = smooth sinusoidal grating
+    frameW:_S.FRAME_W, frameH:_S.FRAME_H, pixelate:false, waveform:'square',   // binary = our videos
     ratio:_M.RESERVE_RATIO, corner:_M.CORNER,
     outW:0, outH:0, fill:true,                            // fill => stimulus fills the canvas
     markerOnset:null, markerCount:0,
@@ -403,6 +410,7 @@ function createRenderer(canvas){
     gl.uniform1f(u.ct, st.contrast);
     gl.uniform1f(u.lum, st.meanLum);
     gl.uniform1f(u.pix, st.pixelate?1:0);
+    gl.uniform1f(u.wave, st.waveform==='square'?1:0);
     gl.uniform1i(u.mk, marker);
     gl.uniform3fv(u.mkrgb, MARKER_RGB);
     gl.uniform1f(u.mkside, markerSide());
@@ -430,6 +438,7 @@ function createRenderer(canvas){
     if(c.frameW!=null) st.frameW = c.frameW;
     if(c.frameH!=null) st.frameH = c.frameH;
     if(c.pixelate!=null) st.pixelate = !!c.pixelate;
+    if(c.waveform!=null) st.waveform = c.waveform;
     if(c.ratio!=null) st.ratio = c.ratio;
     if(c.corner!=null) st.corner = c.corner;
     if(c.outW!=null) st.outW = c.outW;
@@ -475,7 +484,7 @@ if(ROLE === 'stim'){
 
   const _S2 = window.STIMPROTOCOL.STIM, _M2 = window.STIMPROTOCOL.MARKER;
   const cfg = { greyLevel:_S2.GREY_LEVEL, sf:_S2.SPATIAL_FREQ_CPP, frameW:_S2.FRAME_W, frameH:_S2.FRAME_H,
-                pixelate:false, ratio:_M2.RESERVE_RATIO, corner:_M2.CORNER, outW:800, outH:554, fill:true };
+                pixelate:false, waveform:'square', ratio:_M2.RESERVE_RATIO, corner:_M2.CORNER, outW:800, outH:554, fill:true };
   R.config(cfg);
   let durTimer = null, advanceTimer = null;
 
@@ -504,19 +513,18 @@ if(ROLE === 'stim'){
     document.querySelectorAll('#moveSeg button').forEach(x=>
       x.classList.toggle('sel', x.dataset.mv===(p.moving?'moving':'still')));
   }
-  function present(tr){
-    tr.trialId = ++trialSeq;
-    clearTimeout(durTimer);
+  function showGrating(tr){                       // display a grating (no auto-return timer)
+    tr.trialId = tr.trialId || ++trialSeq;
     closeBlock(); openBlock(tr.type, tr);
-    R.present(tr);                              // mirror
+    R.present(tr);                               // mirror
     sendStim({cmd:'present', trial:tr});
     logTrial(tr);
     setState(tr.moving?'MOVING':'STILL', `${tr.orientation}° · ${tr.duration}s`, 'on');
-    if(tr.duration>0) durTimer = setTimeout(gratingEnded, tr.duration*1000);   // control owns timing
   }
-  function gratingEnded(){                       // a timed grating finished → grey, then advance
-    applyGrey(true);
-    if(running) advanceTimer = setTimeout(presentNext, (+greyBetweenEl.value||0)*1000);
+  function present(tr){                           // manual: show, then auto-return to grey
+    clearTimeout(durTimer);
+    showGrating(tr);
+    if(tr.duration>0) durTimer = setTimeout(()=>applyGrey(true), tr.duration*1000);
   }
   function applyGrey(fireMarker){
     closeBlock(); openBlock('grey', null);
@@ -547,6 +555,8 @@ if(ROLE === 'stim'){
   function ean(x){ return (+x).toFixed(3); }
   document.querySelectorAll('#moveSeg button').forEach(b=>b.onclick=()=>{
     document.querySelectorAll('#moveSeg button').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); });
+  document.querySelectorAll('#waveSeg button').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('#waveSeg button').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); pushCfg(); });
   bind('grey','greyVal',x=>Math.round(+x*255));
   bind('frameW','frameWVal',x=>x); bind('frameH','frameHVal',x=>x);
   bind('outW','outWVal',x=>x); bind('outH','outHVal',x=>x);
@@ -557,6 +567,7 @@ if(ROLE === 'stim'){
     cfg.frameW=+document.getElementById('frameW').value;
     cfg.frameH=+document.getElementById('frameH').value;
     cfg.pixelate=document.getElementById('pixelate').checked;
+    cfg.waveform=document.querySelector('#waveSeg .sel').dataset.wave;
     cfg.ratio=+document.getElementById('ratio').value;
     cfg.corner=document.getElementById('corner').value;
     cfg.fill=document.getElementById('fillScreen').checked;
@@ -653,8 +664,9 @@ if(ROLE === 'stim'){
     qBody.innerHTML = '';
     queue.forEach((it,i)=>{
       const row = document.createElement('tr');
+      const isGrating = it.type==='moving' || it.type==='still';
       row.innerHTML = `<td>${i+1}</td><td class="type-${it.type}">${it.type}</td>`+
-        `<td>${it.orientation}°</td><td>${it.duration}s</td>`+
+        `<td>${isGrating ? it.orientation+'°' : '—'}</td><td>${it.duration}s</td>`+
         `<td><button data-i="${i}" class="qdel linkbtn" style="padding:2px 7px">✕</button></td>`;
       qBody.appendChild(row);
     });
@@ -662,22 +674,31 @@ if(ROLE === 'stim'){
       if(running) return; queue.splice(+b.dataset.i,1); renderQueue(); });
     document.getElementById('qCount').textContent = queue.length;
   }
+  function pushBlock(b){ queue.push(b); renderQueue(); }
   function addToQueue(tr){
-    queue.push({ type:tr.type, orientation:tr.orientation, sf:tr.sf, tf:tr.tf,
-                 contrast:tr.contrast, duration:tr.duration, moving:tr.moving });
-    renderQueue();
+    pushBlock({ type:tr.type, orientation:tr.orientation, sf:tr.sf, tf:tr.tf,
+                contrast:tr.contrast, duration:tr.duration, moving:tr.moving });
+  }
+  function addBlock(type){                        // a rest block (grey/black) of the rest-slider duration
+    pushBlock({ type, orientation:null, duration:(+greyBetweenEl.value||0) });
+  }
+  function runQueueBlock(item){                    // the queue is LITERAL — run exactly this block
+    if(item.type==='grey') applyGrey(true);
+    else if(item.type==='black') applyBlack();
+    else showGrating(item);                        // grating (no auto-grey; add explicit rest blocks)
   }
   function presentNext(){
     if(!running) return;
     if(runIdx >= queue.length){ stopQueue(); return; }
-    present(queue[runIdx++]);          // mirror auto-ends after its duration -> onEnded advances
+    const item = queue[runIdx++];
+    runQueueBlock(item);
+    advanceTimer = setTimeout(presentNext, Math.max(+item.duration||0, 0.05)*1000);
   }
   function runQueue(){
     if(running || !queue.length) return;
     running = true; runIdx = 0;
     document.getElementById('qRun').textContent = '■ Stop queue';
-    applyGrey(true);                    // lead-in grey
-    advanceTimer = setTimeout(presentNext, (+greyBetweenEl.value||0)*1000);
+    presentNext();                                 // run blocks in order, each for its own duration
   }
   function stopQueue(){
     running = false; clearTimeout(advanceTimer); clearTimeout(durTimer);
@@ -685,10 +706,15 @@ if(ROLE === 'stim'){
     applyGrey(true);
   }
   document.getElementById('qAdd').onclick = ()=>addToQueue(formTrial());
+  document.getElementById('qGrey').onclick = ()=>addBlock('grey');
+  document.getElementById('qBlack').onclick = ()=>addBlock('black');
   document.getElementById('qSweep').onclick = ()=>{
-    const base = formTrial();                    // current sf/tf/contrast/duration
-    [0,45,90,135,180,225,270,315].forEach(o =>
-      addToQueue({...base, orientation:o, moving:true, type:'moving'}));
+    const base = formTrial();                    // current sf/tf/contrast/duration/waveform
+    const gap = +greyBetweenEl.value||0;
+    [0,45,90,135,180,225,270,315].forEach((o,i) => {
+      if(i>0 && gap>0) addBlock('grey');         // grey gap between gratings
+      addToQueue({...base, orientation:o, moving:true, type:'moving'});
+    });
   };
   document.getElementById('qClear').onclick = ()=>{ if(!running){ queue.length=0; renderQueue(); } };
   document.getElementById('qRun').onclick = ()=>{ running ? stopQueue() : runQueue(); };
