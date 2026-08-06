@@ -39,6 +39,10 @@ full-screen well-behaved.)
 
 Keyboard: **Space** present · **G/Esc** grey · **B** black · **1–8** presets.
 
+The quick orientation buttons (and **1–8**) present at the preset orientation but honour the
+current **moving / still** toggle — a still quick-button stays static (2-pulse marker), a
+moving one drifts (3-pulse) — so the motion choice is never silently overridden.
+
 ## Seamless grey / black ↔ grating
 
 Grey, black, and grating are the **same** WebGL surface, never torn down: grey is a grating
@@ -69,6 +73,13 @@ add the current grating, a grey rest block, a black rest block, or a full 0–31
 (with a grey gap between gratings). This mirrors a real protocol — black pads, grey blocks,
 gratings — so a played sequence maps straight onto the recording.
 
+- **Reorder by dragging.** Grab a queue row by its **⠿** handle (or anywhere on the row) and
+  drop it above or below another; an insert line shows where it lands. Disabled while a queue
+  is running.
+- **Favourite queues.** Name the current queue and **★ Save** it; it persists in the browser
+  (`localStorage`) across reloads. Pick a saved queue and **Load** it (replaces the current
+  queue) or **Delete** it. So a routine protocol is one click away next session.
+
 ## Corner pulse markers (matches the pipeline)
 
 At each onset a **RED** square flashes in a screen **corner** (top-right by default,
@@ -91,8 +102,11 @@ constants live in `protocol.js` and are unit-tested against the pipeline values.
 **Export protocol (MAT)** writes `protocol_played.json`: the blocks actually shown, in
 order, with cumulative times, `label`, `orientation_deg`, and `marker_pulses` — in the
 pipeline's protocol schema. These are the *intended* (wall-clock) onsets; the recording's
-photodiode gives the true, frame-exact onset, and the two align post-hoc. (The trial log
-also exports as CSV/JSON.)
+photodiode gives the true, frame-exact onset, and the two align post-hoc.
+
+The **trial log** records every block — gratings **and** the grey / black rest starts — with
+a wall-clock timestamp, oldest at the top (newest scrolls into view at the bottom). It
+exports as CSV/JSON.
 
 ## What's here
 
@@ -104,10 +118,10 @@ also exports as CSV/JSON.)
 
 ## Verification
 
-The **protocol/marker logic is node-tested** (`npm test`, 8 checks) and the page's inline
-script is syntax-checked. The **visual output and on-screen timing must be verified in a
-browser on the rig** — that can't be tested headless. The photodiode remains the timing
-ground truth by design, so browser presentation jitter is *measured*, not feared.
+The **protocol/marker logic is node-tested** (`npm test`, 12 checks) and the page's inline
+script is syntax-checked. The **visual output, drag-reorder, and on-screen timing must be
+verified in a browser on the rig** — that can't be tested headless. The photodiode remains
+the timing ground truth by design, so browser presentation jitter is *measured*, not feared.
 
 ## Citing QDSpy
 

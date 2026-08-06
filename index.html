@@ -129,6 +129,13 @@
   td{color:var(--ink)}
   tr:last-child td{border-bottom:0}
   .type-grey{color:var(--muted)} .type-still{color:var(--accent)} .type-moving{color:var(--go)}
+  .type-black{color:var(--faint)}
+  /* queue drag-to-reorder */
+  tr.qrow[draggable="true"]{cursor:grab}
+  tr.qrow.dragging{opacity:.45;cursor:grabbing}
+  tr.qrow.drop-above td{border-top:2px solid var(--accent)}
+  tr.qrow.drop-below td{border-bottom:2px solid var(--accent)}
+  .qhandle{color:var(--faint);user-select:none} .qnum{color:var(--ink)}
   .hint{color:var(--faint);font-size:11px}
 </style>
 </head>
@@ -202,6 +209,16 @@
         <button class="linkbtn" id="qBlack">+ black</button>
         <button class="linkbtn" id="qSweep">+ 0–315 sweep</button>
         <button class="linkbtn" id="qClear">Clear</button>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        <input type="text" id="qName" placeholder="favourite name" autocomplete="off"
+               style="flex:1 1 120px;min-width:100px;padding:5px 8px;border:1px solid var(--border);
+                      border-radius:6px;background:var(--panel-2);color:var(--ink);font-size:12px">
+        <button class="linkbtn" id="qSave">★ Save</button>
+        <select id="qFav" style="flex:1 1 140px;min-width:120px;padding:5px 8px;border:1px solid var(--border);
+                      border-radius:6px;background:var(--panel-2);color:var(--ink);font-size:12px"></select>
+        <button class="linkbtn" id="qLoad">Load</button>
+        <button class="linkbtn" id="qFavDel">Delete</button>
       </div>
       <div class="logscroll" style="max-height:150px">
         <table><thead><tr><th>#</th><th>type</th><th>ori</th><th>dur</th><th></th></tr></thead>
@@ -512,12 +529,20 @@ if(ROLE === 'stim'){
       moving: document.querySelector('#moveSeg .sel').dataset.mv==='moving',
     };
   }
-  /* Reflect a preset into the custom form, so "+ Add current" queues THAT orientation. */
+  /* Reflect a preset's ORIENTATION into the custom form, so "+ grating" queues THAT orientation.
+     Deliberately does NOT touch the moving/still segment: the operator's motion choice must stand,
+     so a quick orientation button honours "still" instead of forcing the preset's moving=true
+     (the bug where every quick button drifted even with "still" selected). */
   function setForm(p){
     const ori=document.getElementById('ori'); ori.value=p.orientation;
     ori.dispatchEvent(new Event('input'));                 // refresh the °-display
-    document.querySelectorAll('#moveSeg button').forEach(x=>
-      x.classList.toggle('sel', x.dataset.mv===(p.moving?'moving':'still')));
+  }
+  /* A quick orientation button presents at the preset's orientation but with the CURRENTLY
+     selected motion (moving/still), not the preset's hardcoded moving — so a still quick
+     button stays static (marker = 2 pulses), a moving one drifts (3 pulses). */
+  function quickTrial(p){
+    const moving = document.querySelector('#moveSeg .sel').dataset.mv==='moving';
+    return { ...p, moving, type: moving ? 'moving' : 'still' };
   }
   function showGrating(tr){                       // display a grating (no auto-return timer)
     tr.trialId = tr.trialId || ++trialSeq;
@@ -535,10 +560,12 @@ if(ROLE === 'stim'){
   function applyGrey(fireMarker){
     closeBlock(); openBlock('grey', null);
     R.toGrey(fireMarker); sendStim({cmd:'grey'}); setState('GREY','idle','grey');
+    logEntry({type:'grey'});                              // mark the grey block start in the log
   }
   function applyBlack(){
     closeBlock(); openBlock('black', null);
     R.toBlack(); sendStim({cmd:'black'}); setState('BLACK','rest','grey');
+    logEntry({type:'black'});                             // mark the black block start in the log
   }
   function greyBtn(){ if(running) stopQueue(); clearTimeout(durTimer); applyGrey(true); }
   function blackBtn(){ if(running) stopQueue(); clearTimeout(durTimer); applyBlack(); }
@@ -548,7 +575,7 @@ if(ROLE === 'stim'){
   PRESETS.forEach((p,i)=>{
     const b=document.createElement('button'); b.className='preset';
     b.innerHTML=`<span class="ori">${p.orientation}°</span><span class="mv">${p.moving?'moving':'still'}</span><span class="kbd">${i+1}</span>`;
-    b.onclick=()=>{ setForm(p); present({...p, type:p.moving?'moving':'still'}); };
+    b.onclick=()=>{ setForm(p); present(quickTrial(p)); };
     pc.appendChild(b);
   });
 
@@ -612,21 +639,29 @@ if(ROLE === 'stim'){
     if(e.key==='Escape'||e.key==='g'||e.key==='G'){ e.preventDefault(); greyBtn(); }
     else if(e.key==='b'||e.key==='B'){ e.preventDefault(); blackBtn(); }
     else if(e.key===' '){ e.preventDefault(); present(formTrial()); }
-    else if(e.key>='1'&&e.key<='8'){ const p=PRESETS[+e.key-1]; if(p){ setForm(p); present({...p,type:p.moving?'moving':'still'}); } }
+    else if(e.key>='1'&&e.key<='8'){ const p=PRESETS[+e.key-1]; if(p){ setForm(p); present(quickTrial(p)); } }
   });
 
   /* ---- trial log ---- */
-  const rows=[]; const logBody=document.getElementById('logBody');
-  function logTrial(tr){
-    const now=new Date(); const wall=now.toLocaleTimeString('uk-UA',{hour12:false})+'.'+String(now.getMilliseconds()).padStart(3,'0');
-    const row={n:tr.trialId, wall, type:tr.type, ori:tr.orientation, dur:tr.duration, sf:tr.sf, tf:tr.tf, contrast:tr.contrast, ms:now.getTime()};
+  const rows=[]; const logBody=document.getElementById('logBody'); let logSeq=0;
+  /* Log ANY block: a grating (with its params) OR a grey/black rest (params shown as —). Grey/black
+     rows mark the START of the rest block, so the log is a complete record of what was on screen and
+     when — not just the gratings. */
+  function logEntry({type, orientation=null, duration=null, sf=null, tf=null, contrast=null}){
+    const now=new Date();
+    const wall=now.toLocaleTimeString('uk-UA',{hour12:false})+'.'+String(now.getMilliseconds()).padStart(3,'0');
+    const row={n:++logSeq, wall, type, ori:orientation, dur:duration, sf, tf, contrast, ms:now.getTime()};
     rows.push(row);
+    const g=(v,f)=> (v==null ? '—' : f(v));               // dash for the fields a rest block has none of
     const el=document.createElement('tr');
-    el.innerHTML=`<td>${row.n}</td><td>${wall}</td><td class="type-${tr.type}">${tr.type}</td>
-      <td>${tr.orientation}°</td><td>${tr.duration}s</td><td>${tr.sf.toFixed(3)}</td>
-      <td>${tr.tf.toFixed(1)}</td><td>${tr.contrast.toFixed(2)}</td>`;
-    logBody.prepend(el);
+    el.innerHTML=`<td>${row.n}</td><td>${wall}</td><td class="type-${type}">${type}</td>
+      <td>${g(orientation,v=>v+'°')}</td><td>${g(duration,v=>v+'s')}</td><td>${g(sf,v=>v.toFixed(3))}</td>
+      <td>${g(tf,v=>v.toFixed(1))}</td><td>${g(contrast,v=>v.toFixed(2))}</td>`;
+    logBody.appendChild(el);                              // oldest on top, newest at the bottom
+    const sc = logBody.closest('.logscroll'); if(sc) sc.scrollTop = sc.scrollHeight;   // keep newest in view
   }
+  function logTrial(tr){ logEntry({type:tr.type, orientation:tr.orientation, duration:tr.duration,
+                                   sf:tr.sf, tf:tr.tf, contrast:tr.contrast}); }
   document.getElementById('clearLog').onclick=()=>{ rows.length=0; logBody.innerHTML=''; };
   document.getElementById('expJson').onclick=()=>download('stimlog.json', JSON.stringify(rows,null,2), 'application/json');
   document.getElementById('expCsv').onclick=()=>{
@@ -666,19 +701,56 @@ if(ROLE === 'stim'){
   const queue = []; const qBody = document.getElementById('queueBody');
   const greyBetweenEl = document.getElementById('greyBetween');
   let running = false, runIdx = 0;
+  let dragFrom = null;
   function renderQueue(){
     qBody.innerHTML = '';
     queue.forEach((it,i)=>{
       const row = document.createElement('tr');
+      row.className = 'qrow'; row.dataset.i = i; row.draggable = !running;   // drag disabled while running
       const isGrating = it.type==='moving' || it.type==='still';
-      row.innerHTML = `<td>${i+1}</td><td class="type-${it.type}">${it.type}</td>`+
+      row.innerHTML = `<td class="qhandle" title="drag to reorder">⠿ <span class="qnum">${i+1}</span></td>`+
+        `<td class="type-${it.type}">${it.type}</td>`+
         `<td>${isGrating ? it.orientation+'°' : '—'}</td><td>${it.duration}s</td>`+
         `<td><button data-i="${i}" class="qdel linkbtn" style="padding:2px 7px">✕</button></td>`;
       qBody.appendChild(row);
     });
     qBody.querySelectorAll('.qdel').forEach(b=>b.onclick=()=>{
       if(running) return; queue.splice(+b.dataset.i,1); renderQueue(); });
+    attachQueueDnD();
     document.getElementById('qCount').textContent = queue.length;
+  }
+  function moveQueueItem(from, to){                   // to = insertion index in the pre-removal array
+    to = Math.max(0, Math.min(to, queue.length));
+    const [item] = queue.splice(from, 1);
+    if(from < to) to--;                               // removal shifts later indices left by one
+    queue.splice(to, 0, item);
+    renderQueue();
+  }
+  function clearDropMarks(){ qBody.querySelectorAll('tr').forEach(r=>r.classList.remove('drop-above','drop-below')); }
+  function attachQueueDnD(){
+    qBody.querySelectorAll('tr.qrow').forEach(row=>{
+      row.addEventListener('dragstart', e=>{
+        if(running){ e.preventDefault(); return; }
+        dragFrom = +row.dataset.i; e.dataTransfer.effectAllowed = 'move';
+        try{ e.dataTransfer.setData('text/plain', String(dragFrom)); }catch(_){}
+        row.classList.add('dragging');
+      });
+      row.addEventListener('dragend', ()=>{ row.classList.remove('dragging'); clearDropMarks(); dragFrom = null; });
+      row.addEventListener('dragover', e=>{
+        if(dragFrom===null) return;
+        e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+        const r = row.getBoundingClientRect(); const after = (e.clientY - r.top) > r.height/2;
+        clearDropMarks(); row.classList.add(after ? 'drop-below' : 'drop-above');
+      });
+      row.addEventListener('drop', e=>{
+        e.preventDefault();
+        if(dragFrom===null || running){ return; }
+        const onIdx = +row.dataset.i; const r = row.getBoundingClientRect();
+        const after = (e.clientY - r.top) > r.height/2;
+        moveQueueItem(dragFrom, onIdx + (after ? 1 : 0));
+        dragFrom = null;
+      });
+    });
   }
   function pushBlock(b){ queue.push(b); renderQueue(); }
   function addToQueue(tr){
@@ -724,6 +796,41 @@ if(ROLE === 'stim'){
   };
   document.getElementById('qClear').onclick = ()=>{ if(!running){ queue.length=0; renderQueue(); } };
   document.getElementById('qRun').onclick = ()=>{ running ? stopQueue() : runQueue(); };
+
+  /* ---- favourite queues (persist across reloads in localStorage) ---- */
+  const FAV_KEY = 'stimrunner.favQueues.v1';
+  function loadFavs(){ try{ return JSON.parse(localStorage.getItem(FAV_KEY)) || {}; }catch(e){ return {}; } }
+  function saveFavs(f){ try{ localStorage.setItem(FAV_KEY, JSON.stringify(f)); }catch(e){ alert('Could not save (storage full or blocked).'); } }
+  function renderFavs(){
+    const sel = document.getElementById('qFav'); const favs = loadFavs();
+    const names = Object.keys(favs).sort(); const keep = sel.value;
+    sel.innerHTML = '';
+    if(!names.length){ const o=document.createElement('option'); o.value=''; o.textContent='— no saved queues —'; sel.appendChild(o); return; }
+    names.forEach(n=>{ const o=document.createElement('option'); o.value=n;   // textContent, not innerHTML → no injection
+      o.textContent = `${n} (${favs[n].length})`; sel.appendChild(o); });
+    if(names.includes(keep)) sel.value = keep;
+  }
+  document.getElementById('qSave').onclick = ()=>{
+    const name = (document.getElementById('qName').value || '').trim();
+    if(!name){ alert('Name the favourite first.'); return; }
+    if(!queue.length){ alert('The queue is empty — add blocks before saving.'); return; }
+    const favs = loadFavs();
+    if(favs[name] && !confirm(`Overwrite the saved queue "${name}"?`)) return;
+    favs[name] = queue.map(b => ({...b}));            // snapshot the blocks (deep-ish copy)
+    saveFavs(favs); renderFavs(); document.getElementById('qFav').value = name;
+  };
+  document.getElementById('qLoad').onclick = ()=>{
+    if(running){ alert('Stop the queue before loading.'); return; }
+    const name = document.getElementById('qFav').value; const favs = loadFavs();
+    if(!name || !favs[name]){ return; }
+    queue.length = 0; favs[name].forEach(b => queue.push({...b}));   // replace current queue
+    renderQueue(); document.getElementById('qName').value = name;
+  };
+  document.getElementById('qFavDel').onclick = ()=>{
+    const name = document.getElementById('qFav').value; const favs = loadFavs();
+    if(name && favs[name] && confirm(`Delete the saved queue "${name}"?`)){ delete favs[name]; saveFavs(favs); renderFavs(); }
+  };
+  renderFavs();
 
   openBlock('grey', null);   // the session starts on grey
   setState('GREY','idle','grey');
