@@ -45,7 +45,7 @@
   body.stim #stageHint{display:none}
 
   /* ---- CONTROL ROLE: operator cockpit ---- */
-  #app{display:grid;grid-template-columns:minmax(320px,380px) 1fr;gap:18px;
+  #app{display:grid;grid-template-columns:minmax(416px,494px) 1fr;gap:18px;
        height:100vh;padding:18px}
   @media (max-width:820px){#app{grid-template-columns:1fr;height:auto}}
 
@@ -199,6 +199,13 @@
       </div>
     </div>
 
+    <div class="actions">
+      <button class="big present" id="present">▶ Present  <span class="hint" style="color:#0a3">(Space)</span></button>
+      <button class="big grey" id="toGrey">Grey (G)</button>
+      <button class="big grey" id="toBlack">Black (B)</button>
+      <button class="big abort" id="abort" style="grid-column:1/-1">■ Abort → grey (Esc)</button>
+    </div>
+
     <div class="card">
       <h2>Sequence <span class="hint">(<span id="qCount">0</span> blocks — run in order, each for its own duration)</span></h2>
       <label class="f" style="margin-bottom:8px">Rest / grey-gap duration (s) <span class="val" id="gbVal">4.0</span>
@@ -210,28 +217,24 @@
         <button class="linkbtn" id="qSweep">+ 0–315 sweep</button>
         <button class="linkbtn" id="qClear">Clear</button>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
-        <input type="text" id="qName" placeholder="favourite name" autocomplete="off"
-               style="flex:1 1 120px;min-width:100px;padding:5px 8px;border:1px solid var(--border);
-                      border-radius:6px;background:var(--panel-2);color:var(--ink);font-size:12px">
-        <button class="linkbtn" id="qSave">★ Save</button>
-        <select id="qFav" style="flex:1 1 140px;min-width:120px;padding:5px 8px;border:1px solid var(--border);
-                      border-radius:6px;background:var(--panel-2);color:var(--ink);font-size:12px"></select>
-        <button class="linkbtn" id="qLoad">Load</button>
-        <button class="linkbtn" id="qFavDel">Delete</button>
-      </div>
       <div class="logscroll" style="max-height:150px">
         <table><thead><tr><th>#</th><th>type</th><th>ori</th><th>dur</th><th></th></tr></thead>
           <tbody id="queueBody"></tbody></table>
       </div>
       <button class="big grey" id="qRun" style="width:100%;margin-top:10px">▶ Run queue</button>
-    </div>
-
-    <div class="actions">
-      <button class="big present" id="present">▶ Present  <span class="hint" style="color:#0a3">(Space)</span></button>
-      <button class="big grey" id="toGrey">Grey (G)</button>
-      <button class="big grey" id="toBlack">Black (B)</button>
-      <button class="big abort" id="abort" style="grid-column:1/-1">■ Abort → grey (Esc)</button>
+      <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:10px">
+        <div class="hint" style="margin-bottom:6px">Saved protocols (files in <code>protocols/</code>)</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <input type="text" id="qName" placeholder="protocol name" autocomplete="off"
+                 style="flex:1 1 120px;min-width:100px;padding:5px 8px;border:1px solid var(--border);
+                        border-radius:6px;background:var(--panel-2);color:var(--ink);font-size:12px">
+          <button class="linkbtn" id="qSave">★ Save</button>
+          <select id="qFav" style="flex:1 1 140px;min-width:120px;padding:5px 8px;border:1px solid var(--border);
+                        border-radius:6px;background:var(--panel-2);color:var(--ink);font-size:12px"></select>
+          <button class="linkbtn" id="qLoad">Load</button>
+          <button class="linkbtn" id="qFavDel">Delete</button>
+        </div>
+      </div>
     </div>
 
     <div class="card" id="logCard">
