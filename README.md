@@ -12,8 +12,11 @@ Gratings match the reference stimulus videos: a **binary (square-wave)** grating
 size.
 
 This is **v1 (manual presenter)** — a light replacement for an aging MATLAB stimulus rig.
-A closed-loop camera trigger ("fire when the mouse has been calm ≥ 2 s") is a planned later
-phase and adds a small Python backend; it is not part of v1.
+Saved protocols live as plain JSON files in a `protocols/` folder, owned by a tiny
+standard-library server (`serve.py`) — the browser is a pure player, with no browser storage.
+A closed-loop camera trigger ("fire when the mouse has been calm ≥ 2 s") and a hardware
+**trigger-out** (e.g. a TTL into LabChart) are planned later phases that build on that same
+one small server.
 
 ## Two screens
 
@@ -24,18 +27,30 @@ phase and adds a small Python backend; it is not part of v1.
   the queue, the trial log, and a live mirror of what the mouse sees.
 
 The two are one page in two roles (`#stim` vs control), talking over `postMessage` — no
-install, no backend.
+install. The only backend is the tiny `serve.py`, and only the saved-protocol list uses it;
+presentation itself is pure browser.
 
 ## Run it
 
-Serve the folder and open `index.html` in a browser (Chrome/Edge/Firefox):
+Run the tiny server from this folder — it serves the page **and** owns the `protocols/`
+folder (so saving a protocol writes a file, not browser storage) and auto-opens the runner
+in Chrome (or Edge):
 
 ```bash
-python3 -m http.server 8000    # then open http://localhost:8000
+python serve.py               # opens http://127.0.0.1:8000 in Chrome / Edge
+python serve.py 8080          # pick a port
+python serve.py --no-browser  # don't open a tab (one is already open)
 ```
 
-(Opening the file directly also works, but a local server keeps `postMessage` and
-full-screen well-behaved.)
+It is **standard-library only** (Python 3.8+), binds to `127.0.0.1` only (never the network —
+it writes files), and is one light process: idle it uses ~0 % CPU and ~20 MB RAM, and you run
+it only while presenting. **Windows:** `python serve.py` (or `py serve.py`). It prefers a
+Chromium browser for reliable WebGL + full-screen — **Chrome, else Edge**, else the system
+default. (Internet Explorer cannot run this page — no WebGL2 / modern JS; on Windows use Edge.)
+
+*Gratings-only, no server:* the page also opens with any static server
+(`python -m http.server 8000`) or straight from the file — everything works **except** the
+saved-protocol list, which needs `serve.py`.
 
 Keyboard: **Space** present · **G/Esc** grey · **B** black · **1–8** presets.
 
@@ -76,9 +91,12 @@ gratings — so a played sequence maps straight onto the recording.
 - **Reorder by dragging.** Grab a queue row by its **⠿** handle (or anywhere on the row) and
   drop it above or below another; an insert line shows where it lands. Disabled while a queue
   is running.
-- **Favourite queues.** Name the current queue and **★ Save** it; it persists in the browser
-  (`localStorage`) across reloads. Pick a saved queue and **Load** it (replaces the current
-  queue) or **Delete** it. So a routine protocol is one click away next session.
+- **Saved protocols — a folder, not the browser.** Name the current queue and **★ Save** it;
+  `serve.py` writes it to `protocols/<name>.json`. Pick a saved protocol and **Load** it
+  (replaces the current queue) or **Delete** it. Because they are plain files, they travel
+  with the folder: copy the folder to another computer — or commit it to git — and the same
+  protocols are there, independent of any browser. A starter `protocols/8-ori sweep.json`
+  ships as an example.
 
 ## Corner pulse markers (matches the pipeline)
 
@@ -114,6 +132,11 @@ exports as CSV/JSON.
 - `protocol.js` — the **pure** logic (marker encoding, stimulus defaults matched to the
   generator, the played-protocol builder, the sequence timeline). No DOM/WebGL, so it is
   unit-tested headless.
+- `serve.py` — the tiny standard-library server: serves the page, opens it in Chrome/Edge,
+  and reads/writes the `protocols/` folder (`GET/POST/DELETE /api/protocols`). Localhost-only,
+  no dependencies.
+- `protocols/` — saved protocols, one JSON file each (`{name, blocks}`); ships an
+  `8-ori sweep` example.
 - `test/protocol.test.js` — `node test/protocol.test.js` (or `npm test`).
 
 ## Verification

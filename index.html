@@ -797,38 +797,67 @@ if(ROLE === 'stim'){
   document.getElementById('qClear').onclick = ()=>{ if(!running){ queue.length=0; renderQueue(); } };
   document.getElementById('qRun').onclick = ()=>{ running ? stopQueue() : runQueue(); };
 
-  /* ---- favourite queues (persist across reloads in localStorage) ---- */
-  const FAV_KEY = 'stimrunner.favQueues.v1';
-  function loadFavs(){ try{ return JSON.parse(localStorage.getItem(FAV_KEY)) || {}; }catch(e){ return {}; } }
-  function saveFavs(f){ try{ localStorage.setItem(FAV_KEY, JSON.stringify(f)); }catch(e){ alert('Could not save (storage full or blocked).'); } }
-  function renderFavs(){
-    const sel = document.getElementById('qFav'); const favs = loadFavs();
-    const names = Object.keys(favs).sort(); const keep = sel.value;
-    sel.innerHTML = '';
-    if(!names.length){ const o=document.createElement('option'); o.value=''; o.textContent='— no saved queues —'; sel.appendChild(o); return; }
-    names.forEach(n=>{ const o=document.createElement('option'); o.value=n;   // textContent, not innerHTML → no injection
-      o.textContent = `${n} (${favs[n].length})`; sel.appendChild(o); });
-    if(names.includes(keep)) sel.value = keep;
+  /* ---- protocol library: JSON files in the protocols/ folder, owned by serve.py.
+          The browser is a pure player — no browser storage. Gratings still run
+          without the server; only the saved-protocol list needs it running. ---- */
+  const PROTO_API = '/api/protocols';
+  async function apiList(){
+    const r = await fetch(PROTO_API, {cache:'no-store'});
+    if(!r.ok) throw new Error('http '+r.status);
+    return (await r.json()).protocols || [];
   }
-  document.getElementById('qSave').onclick = ()=>{
+  async function renderFavs(){
+    const sel = document.getElementById('qFav'); const keep = sel.value;
+    let items;
+    try{ items = await apiList(); }
+    catch(e){
+      sel.innerHTML = '';
+      const o=document.createElement('option'); o.value='';
+      o.textContent='— run  python serve.py  to load protocols —'; sel.appendChild(o);
+      return;
+    }
+    sel.innerHTML = '';
+    if(!items.length){ const o=document.createElement('option'); o.value=''; o.textContent='— no saved protocols —'; sel.appendChild(o); return; }
+    items.forEach(it=>{ const o=document.createElement('option'); o.value=it.id;   // textContent, not innerHTML → no injection
+      o.textContent = `${it.name} (${it.count})`; sel.appendChild(o); });
+    if(items.some(it=>it.id===keep)) sel.value = keep;
+  }
+  document.getElementById('qSave').onclick = async ()=>{
     const name = (document.getElementById('qName').value || '').trim();
-    if(!name){ alert('Name the favourite first.'); return; }
+    if(!name){ alert('Name the protocol first.'); return; }
     if(!queue.length){ alert('The queue is empty — add blocks before saving.'); return; }
-    const favs = loadFavs();
-    if(favs[name] && !confirm(`Overwrite the saved queue "${name}"?`)) return;
-    favs[name] = queue.map(b => ({...b}));            // snapshot the blocks (deep-ish copy)
-    saveFavs(favs); renderFavs(); document.getElementById('qFav').value = name;
+    try{
+      const existing = await apiList();
+      if(existing.some(it=>it.name===name || it.id===name) &&
+         !confirm(`Overwrite the saved protocol "${name}"?`)) return;
+    }catch(e){ alert('Cannot reach the server — is  python serve.py  running?'); return; }
+    try{
+      const r = await fetch(PROTO_API, {method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({name, blocks: queue.map(b => ({...b}))})});
+      if(!r.ok){ const e = await r.json().catch(()=>({})); alert('Could not save: '+(e.error||('http '+r.status))); return; }
+      const {id} = await r.json();
+      await renderFavs(); document.getElementById('qFav').value = id;
+    }catch(e){ alert('Could not save — is  python serve.py  running?'); }
   };
-  document.getElementById('qLoad').onclick = ()=>{
+  document.getElementById('qLoad').onclick = async ()=>{
     if(running){ alert('Stop the queue before loading.'); return; }
-    const name = document.getElementById('qFav').value; const favs = loadFavs();
-    if(!name || !favs[name]){ return; }
-    queue.length = 0; favs[name].forEach(b => queue.push({...b}));   // replace current queue
-    renderQueue(); document.getElementById('qName').value = name;
+    const id = document.getElementById('qFav').value; if(!id) return;
+    try{
+      const r = await fetch(`${PROTO_API}/${encodeURIComponent(id)}`, {cache:'no-store'});
+      if(!r.ok){ const e = await r.json().catch(()=>({})); alert('Could not load: '+(e.error||('http '+r.status))); return; }
+      const d = await r.json(); const blocks = Array.isArray(d) ? d : (d.blocks || []);
+      queue.length = 0; blocks.forEach(b => queue.push({...b})); renderQueue();
+      document.getElementById('qName').value = (d && d.name) || id;
+    }catch(e){ alert('Could not load — is  python serve.py  running?'); }
   };
-  document.getElementById('qFavDel').onclick = ()=>{
-    const name = document.getElementById('qFav').value; const favs = loadFavs();
-    if(name && favs[name] && confirm(`Delete the saved queue "${name}"?`)){ delete favs[name]; saveFavs(favs); renderFavs(); }
+  document.getElementById('qFavDel').onclick = async ()=>{
+    const id = document.getElementById('qFav').value; if(!id) return;
+    if(!confirm(`Delete the saved protocol "${id}"?`)) return;
+    try{
+      const r = await fetch(`${PROTO_API}/${encodeURIComponent(id)}`, {method:'DELETE'});
+      if(!r.ok){ const e = await r.json().catch(()=>({})); alert('Could not delete: '+(e.error||('http '+r.status))); return; }
+      await renderFavs();
+    }catch(e){ alert('Could not delete — is  python serve.py  running?'); }
   };
   renderFavs();
 
