@@ -153,6 +153,18 @@ script is syntax-checked. The **visual output, drag-reorder, and on-screen timin
 verified in a browser on the rig** — that can't be tested headless. The photodiode remains
 the timing ground truth by design, so browser presentation jitter is *measured*, not feared.
 
+## Known limitations
+
+- **Dropped-frame vs pulse count.** The corner marker is pulse-*count* coded (grey = 1,
+  static = 2, moving = 3), and each pulse is only ~3 frames wide. On a weak or heavily loaded
+  rig PC, a single dropped frame landing inside a pulse could drop it from the screen and change
+  the decoded count — i.e. the *type* of a scattered trial — and the photodiode records the
+  dropped pulse faithfully, so it does not recover the lost count. Planned fix: widen the pulse
+  or add a parity pulse. Until then, prefer a machine that holds 60 Hz, and sanity-check the
+  decoded marker train against the played protocol.
+- **Modern browser required** — a current Chrome or Edge (WebGL1 + ES6+). No dedicated GPU is
+  needed; integrated graphics run it.
+
 ## Where this sits, and what to cite
 
 This is **not** a general-purpose stimulus platform, and it does not try to be. The field
