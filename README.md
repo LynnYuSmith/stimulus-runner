@@ -46,13 +46,16 @@ It is **standard-library only** (Python 3.8+), binds to `127.0.0.1` only (never 
 it writes files), and is one light process: idle it uses ~0 % CPU and ~20 MB RAM, and you run
 it only while presenting. **Windows:** `python serve.py` (or `py serve.py`). It prefers a
 Chromium browser for reliable WebGL + full-screen — **Chrome, else Edge**, else the system
-default. (Internet Explorer cannot run this page — no WebGL2 / modern JS; on Windows use Edge.)
+default. (Internet Explorer cannot run this page — it needs modern ES6+ JavaScript and WebGL1; on
+Windows use Edge. No dedicated GPU is required — integrated graphics such as Intel HD on an i3 run it.)
 
 *Gratings-only, no server:* the page also opens with any static server
 (`python -m http.server 8000`) or straight from the file — everything works **except** the
 saved-protocol list, which needs `serve.py`.
 
-Keyboard: **Space** present · **G/Esc** grey · **B** black · **1–8** presets.
+Keyboard: **Space** present (**pause / resume** while a sequence is running) · **G/Esc** grey ·
+**B** black · **1–8** presets. Click the **manual** link in the header for an in-app guide, and
+**click any value** beside a slider to type an exact number.
 
 The quick orientation buttons (and **1–8**) present at the preset orientation but honour the
 current **moving / still** toggle — a still quick-button stays static (2-pulse marker), a
@@ -86,11 +89,15 @@ mirrored and every oblique tuning label would be wrong.
 The sequence is a **literal** list of blocks, each run for its own duration, in order:
 add the current grating, a grey rest block, a black rest block, or a full 0–315° sweep
 (with a grey gap between gratings). This mirrors a real protocol — black pads, grey blocks,
-gratings — so a played sequence maps straight onto the recording.
+gratings — so a played sequence maps straight onto the recording. The header shows the block
+count and the **total length** of the sequence.
 
 - **Reorder by dragging.** Grab a queue row by its **⠿** handle (or anywhere on the row) and
   drop it above or below another; an insert line shows where it lands. Disabled while a queue
   is running.
+- **Pause / resume.** While a sequence runs, **Space** (or the **⏸ Pause** button) freezes the
+  drift on both screens and holds the sequence; pressing again resumes from the same spot. Both
+  the pause and the resume are written to the trial log.
 - **Saved protocols — a folder, not the browser.** Name the current queue and **★ Save** it;
   `serve.py` writes it to `protocols/<name>.json`. Pick a saved protocol and **Load** it
   (replaces the current queue) or **Delete** it. Because they are plain files, they travel
@@ -146,15 +153,38 @@ script is syntax-checked. The **visual output, drag-reorder, and on-screen timin
 verified in a browser on the rig** — that can't be tested headless. The photodiode remains
 the timing ground truth by design, so browser presentation jitter is *measured*, not feared.
 
-## Citing QDSpy
+## Where this sits, and what to cite
 
-The design borrows proven patterns from **QDSpy** (Euler lab, University of Tübingen —
-`eulerlab/QDSpy`): per-frame shader-uniform updates for seamless transitions, a
-corner-marker + TTL scheme, an await-trigger presenter state (the closed-loop hook for
-v2/v3), dual-screen with an operator preview, and gamma-LUT calibration. QDSpy is the
-reference, not a dependency (it is GPU-heavy and Windows-first; this runner is deliberately
-light and browser-based). If you publish work using this runner, please cite QDSpy per its
-repository's citation guidance.
+This is **not** a general-purpose stimulus platform, and it does not try to be. The field
+already has excellent, mature tools — this is a narrow, no-install **drop-in** whose corner
+marker and pixel geometry are byte-matched to one existing analysis pipeline's photodiode
+decoder, so a played protocol lands on the recording with no new alignment code. If you need
+a full stimulus system, use one of the tools below instead.
+
+**Prior art (use these for anything general):**
+
+- **PsychoPy / PsychoJS + Pavlovia** — Peirce et al. 2019, *Behav Res Methods* 51:195–203.
+  The field standard; PsychoJS already renders drifting gratings in the browser via WebGL.
+- **Psychtoolbox-3** — Brainard 1997; Pelli 1997; Kleiner et al. 2007. The MATLAB standard
+  (and the likely ancestor of the "aging MATLAB rig" this replaces).
+- **QDSpy** — Euler lab, Tübingen (`github.com/eulerlab/QDSpy`). The direct inspiration for
+  the patterns borrowed here: per-frame shader-uniform swaps for seamless transitions, a
+  corner-marker + TTL scheme, an await-trigger presenter state (the v2/v3 closed-loop hook),
+  dual-screen operator preview, and gamma-LUT calibration. Reference, not a dependency.
+- **BonVision** — Lopes et al. 2021, *eLife* 10:e65541 (on **Bonsai**, Lopes et al. 2015).
+  Open-source GPU visual environments for rodents with native hardware I/O and closed-loop —
+  it already implements the closed-loop + trigger-out roadmap noted above; evaluate it before
+  building that here.
+- **StimServer / FocusStack** — Muir & Kampa 2015, *Front Neuroinform* 8:85. Open-source
+  MATLAB visual stimulation tied to two-photon acquisition — the closest match to this exact
+  use case.
+
+**Also acknowledged:** the drifting-grating parameters (0.02 cyc/px spatial, ~1 Hz temporal,
+full contrast) follow the in-house generator, whose physiological range matches canonical
+mouse-V1 tuning (Niell & Stryker 2008, *J Neurosci* 28:7520–7536). The oblique-orientation
+convention is verified frame-for-frame against **pulse2percept** (Beyeler et al. 2017,
+*Proc. 16th SciPy Conf.*). The colored-corner-square + photodiode timing marker is a standard
+community method, not original to this tool.
 
 ## License
 

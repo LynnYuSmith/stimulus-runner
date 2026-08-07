@@ -77,7 +77,10 @@
 
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;align-items:center}
   label.f{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted)}
-  label.f .val{color:var(--ink);font-family:var(--mono);font-size:12px}
+  label.f .val{color:var(--ink);font-family:var(--mono);font-size:12px;cursor:text}
+  label.f .val:hover{color:var(--accent)}
+  label.f .val input.valedit{width:5em;font:inherit;color:var(--ink);text-align:right;
+        background:var(--panel-2);border:1px solid var(--accent);border-radius:4px;padding:0 4px}
   input[type=range]{width:100%;accent-color:var(--accent)}
   input[type=number],select{width:100%;background:var(--panel-2);border:1px solid var(--border);
         color:var(--ink);border-radius:6px;padding:6px 8px;font-family:var(--mono);font-size:12px}
@@ -102,6 +105,23 @@
   .linkbtn{appearance:none;background:transparent;border:1px solid var(--border);color:var(--accent);
            border-radius:6px;padding:6px 10px;cursor:pointer;font-family:var(--mono);font-size:12px}
   .linkbtn:hover{border-color:var(--accent)}
+  .ver a{color:var(--accent);text-decoration:underline dotted;cursor:pointer}
+  /* manual overlay */
+  #manualBg{position:fixed;inset:0;background:color-mix(in oklab,#000,transparent 30%);
+            display:none;align-items:center;justify-content:center;z-index:50;padding:24px}
+  #manualBg.open{display:flex}
+  #manualBox{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+             max-width:640px;max-height:85vh;overflow:auto;padding:22px 26px;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+  #manualBox h2{margin:0 0 4px;font-size:16px;color:var(--ink);letter-spacing:normal;text-transform:none}
+  #manualBox h3{margin:18px 0 6px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+  #manualBox p,#manualBox li{font-size:13px;color:var(--muted);line-height:1.5}
+  #manualBox ul{margin:0;padding-left:18px}
+  #manualBox kbd{font-family:var(--mono);font-size:11px;background:var(--panel-2);border:1px solid var(--border);
+             border-radius:4px;padding:1px 6px;color:var(--ink)}
+  #manualBox code{font-family:var(--mono);font-size:12px;color:var(--accent)}
+  #manualBox .mclose{float:right;background:transparent;border:1px solid var(--border);color:var(--muted);
+             border-radius:6px;padding:3px 9px;cursor:pointer;font-size:14px}
+  #manualBox .mclose:hover{color:var(--ink);border-color:var(--accent)}
 
   /* ---- stage (mirror in control, fullscreen in stim) ---- */
   #stageWrap{background:#000;border:1px solid var(--border);border-radius:var(--radius);
@@ -144,7 +164,7 @@
   <!-- ============ OPERATOR PANEL (control role only) ============ -->
   <div id="panel">
     <header>
-      <h1>Grating Stimulator <span class="ver">v1 · manual</span></h1>
+      <h1>Grating Stimulator <span class="ver">v1 · <a href="#" id="manualLink" title="how to use this">manual</a></span></h1>
     </header>
 
     <div class="card">
@@ -190,8 +210,8 @@
           </div></label>
         <label class="f">Spatial freq (cyc/px) <span class="val" id="sfVal">0.020</span>
           <input type="range" id="sf" min="0.005" max="0.100" step="0.001" value="0.02"></label>
-        <label class="f">Temporal freq (Hz) <span class="val" id="tfVal">2.0</span>
-          <input type="range" id="tf" min="0" max="8" step="0.5" value="2"></label>
+        <label class="f">Temporal freq (Hz) <span class="val" id="tfVal">1.0</span>
+          <input type="range" id="tf" min="0" max="8" step="0.5" value="1"></label>
         <label class="f">Contrast <span class="val" id="ctVal">1.00</span>
           <input type="range" id="ct" min="0" max="1" step="0.05" value="1"></label>
         <label class="f">Duration (s)
@@ -207,7 +227,7 @@
     </div>
 
     <div class="card">
-      <h2>Sequence <span class="hint">(<span id="qCount">0</span> blocks — run in order, each for its own duration)</span></h2>
+      <h2>Sequence <span class="hint">(<span id="qCount">0</span> blocks · <span id="qDur">0 s</span> total — run in order, each for its own duration)</span></h2>
       <label class="f" style="margin-bottom:8px">Rest / grey-gap duration (s) <span class="val" id="gbVal">4.0</span>
         <input type="range" id="greyBetween" min="0" max="60" step="0.5" value="4"></label>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
@@ -240,7 +260,7 @@
     <div class="card" id="logCard">
       <h2>Trial log</h2>
       <div class="logtools">
-        <button id="expProto">Export protocol (MAT)</button>
+        <button id="expProto">Export protocol (JSON)</button>
         <button id="expCsv">Export CSV</button>
         <button id="expJson">Export JSON</button>
         <button id="clearLog">Clear</button>
@@ -279,7 +299,7 @@
         <label class="f">Stimulus height (px) <span class="val" id="outHVal">554</span>
           <input type="range" id="outH" min="100" max="2160" step="10" value="554"></label>
         <label class="f">Fill screen
-          <span style="font-size:12px"><input type="checkbox" id="fillScreen" checked> ignore size, fill screen</span></label>
+          <span style="font-size:12px"><input type="checkbox" id="fillScreen"> ignore size, fill screen</span></label>
       </div>
       <p class="hint" style="margin:8px 0 0">Spatial freq (cyc/px) × frame width = cycles across the
       stimulus. Our videos: 0.02 × 150 = 3 cycles. Gamma LUT not applied yet.</p>
@@ -290,6 +310,51 @@
   <div id="stageWrap">
     <canvas id="gl"></canvas>
     <div id="stageHint">live mirror — what the mouse sees</div>
+  </div>
+</div>
+
+<!-- ============ MANUAL overlay ============ -->
+<div id="manualBg">
+  <div id="manualBox">
+    <button class="mclose" id="manualClose" title="close">✕</button>
+    <h2>How to use the Grating Stimulator</h2>
+    <p>A browser grating presenter for a two-photon rig. Presentation runs entirely in the
+       browser; a small local server (<code>serve.py</code>) only stores your saved protocols
+       as files.</p>
+
+    <h3>The two screens</h3>
+    <ul>
+      <li><b>Open stimulus window ↗</b> — a clean full-screen canvas; drag it to the mouse's
+          monitor. No second monitor? <b>Fullscreen here ⤢</b>.</li>
+      <li>The operator screen is the cockpit — a live mirror of what the mouse sees is at the right.</li>
+    </ul>
+
+    <h3>Keyboard</h3>
+    <ul>
+      <li><kbd>Space</kbd> — present the current grating; <b>while a sequence runs it pauses / resumes</b> in place.</li>
+      <li><kbd>G</kbd> / <kbd>Esc</kbd> — grey · <kbd>B</kbd> — black · <kbd>1</kbd>–<kbd>8</kbd> — the eight quick orientations.</li>
+    </ul>
+
+    <h3>Setting a grating</h3>
+    <ul>
+      <li><b>Quick gratings</b> present at a preset orientation but honour the <b>moving / still</b> toggle.</li>
+      <li><b>Custom grating</b>: orientation, motion, waveform, spatial/temporal frequency, contrast, duration.</li>
+      <li><b>Click any number</b> next to a slider to type an exact value.</li>
+    </ul>
+
+    <h3>Sequences</h3>
+    <ul>
+      <li>Build a list: <b>+ grating</b>, <b>+ grey</b>, <b>+ black</b>, or a full <b>0–315° sweep</b>. The header shows the block count and total length.</li>
+      <li><b>Drag a row</b> by its ⠿ handle to reorder. <b>Run queue</b> plays them in order, each for its own duration.</li>
+      <li><b>Pause / resume</b> a running sequence with <kbd>Space</kbd> or the <b>⏸ Pause</b> button — it resumes from the same spot, and both are written to the log.</li>
+      <li><b>Saved protocols</b> live as files in the <code>protocols/</code> folder — they travel with the folder to any computer.</li>
+    </ul>
+
+    <h3>Markers &amp; export</h3>
+    <ul>
+      <li>A RED corner square pulses at each onset, pulse-<b>count</b> coded: grey = 1, static = 2, moving = 3 (a photodiode reads it).</li>
+      <li><b>Export protocol</b> writes the played sequence (JSON) to overlay onto the recording; the <b>trial log</b> exports as CSV / JSON.</li>
+    </ul>
   </div>
 </div>
 
@@ -310,7 +375,7 @@ const CORNER_ID = { tr:0, tl:1, br:2, bl:3 };
    (spatial freq in cyc/px on the 104×150 frame → 3 cycles across the width). */
 const PRESETS = [0,45,90,135,180,225,270,315].map(o => ({
   name:`${o}°`, orientation:o, moving:true,
-  sf:_S.SPATIAL_FREQ_CPP, tf:2.0, contrast:1.0, duration:4.0
+  sf:_S.SPATIAL_FREQ_CPP, tf:1.0, contrast:1.0, duration:4.0    // 1 Hz = one drift cycle per second
 }));
 
 const ROLE = (location.hash === '#stim') ? 'stim' : 'control';
@@ -325,12 +390,20 @@ document.body.classList.toggle('stim', ROLE === 'stim');
    Timing is owned by the CONTROL window (setTimeout), not this rAF loop.
 --------------------------------------------------------------------------- */
 function createRenderer(canvas){
-  const gl = canvas.getContext('webgl', {antialias:false, preserveDrawingBuffer:false});
-  if(!gl){ document.body.innerHTML = '<p style="color:#f66;padding:20px">WebGL not available.</p>'; return null; }
+  const gl = canvas.getContext('webgl', {antialias:false, preserveDrawingBuffer:false})
+          || canvas.getContext('experimental-webgl', {antialias:false});   // older integrated-GPU alias
+  if(!gl){
+    document.body.innerHTML = '<div style="color:#f66;font-family:sans-serif;padding:28px;max-width:640px">'
+      + '<h2>WebGL is not available</h2><p>Integrated graphics (e.g. Intel HD on an i3) normally run this '
+      + 'fine — WebGL is likely <b>disabled</b>. In Chrome/Edge enable <code>Settings → System → Use '
+      + 'graphics acceleration</code> (or set <code>chrome://flags/#ignore-gpu-blocklist</code> to '
+      + 'Enabled) and reload. No dedicated GPU is required.</p></div>';
+    return null;
+  }
 
   const VS = `attribute vec2 a; void main(){ gl_Position = vec4(a,0.0,1.0); }`;
   const FS = `
-    precision highp float;
+    precision mediump float;   // mediump so old integrated GPUs (highp is optional in WebGL1) still compile
     uniform vec2  uRes;        // canvas px
     uniform vec2  uOutPos;     // stimulus rect bottom-left, px
     uniform vec2  uOutSize;    // stimulus rect size, px
@@ -387,11 +460,11 @@ function createRenderer(canvas){
              pix:U('uPixelate'),wave:U('uWaveform'),mk:U('uMarker'),mkrgb:U('uMarkerRGB'),mkside:U('uMarkerSide'),corner:U('uCorner')};
 
   const st = {
-    contrast:0, moving:false, theta:0, sf:_S.SPATIAL_FREQ_CPP, tf:2, phase:0,
+    contrast:0, moving:false, theta:0, sf:_S.SPATIAL_FREQ_CPP, tf:1, phase:0,
     greyLevel:_S.GREY_LEVEL, meanLum:_S.GREY_LEVEL,      // current background mean (grey or 0=black)
     frameW:_S.FRAME_W, frameH:_S.FRAME_H, pixelate:false, waveform:'square',   // binary = our videos
     ratio:_M.RESERVE_RATIO, corner:_M.CORNER,
-    outW:0, outH:0, fill:true,                            // fill => stimulus fills the canvas
+    outW:0, outH:0, fill:false,                           // fill => stimulus fills the canvas (default off)
     markerOnset:null, markerCount:0,
   };
   const cbs = { onEnded:()=>{} };   // kept for API compatibility; timing is control-owned
@@ -415,7 +488,7 @@ function createRenderer(canvas){
     const dt = (now-last)/1000; last=now;
     // phase DECREASES so the grating drifts in the reference generator's direction (with the
     // y-flip above, +phase would drift the opposite way — verified vs pulse2percept).
-    if(st.moving && st.contrast>0) st.phase -= 2*Math.PI*st.tf*dt;
+    if(st.moving && st.contrast>0 && !st.frozen) st.phase -= 2*Math.PI*st.tf*dt;  // frozen = paused mid-sequence
 
     let marker = 0;
     if(st.markerOnset!==null){
@@ -458,6 +531,7 @@ function createRenderer(canvas){
     if(fireMarker){ st.markerCount = TYPE_PULSES.grey; st.markerOnset = performance.now(); }
   }
   function toBlack(){ st.contrast = 0; st.moving = false; st.meanLum = 0; /* rest screen, no marker */ }
+  function setFrozen(b){ st.frozen = !!b; }              // pause/resume the drift in place
   function config(c){
     if(c.greyLevel!=null){ st.greyLevel = c.greyLevel; if(st.contrast===0 && st.meanLum>0) st.meanLum = c.greyLevel; }
     if(c.sf!=null) st.sf = c.sf;
@@ -472,11 +546,21 @@ function createRenderer(canvas){
     if(c.fill!=null) st.fill = !!c.fill;
   }
 
-  return { present, toGrey, toBlack, config, st, cbs };
+  return { present, toGrey, toBlack, config, setFrozen, st, cbs };
 }
 
 const canvas = document.getElementById('gl');
-const R = createRenderer(canvas);
+let R;
+try{
+  R = createRenderer(canvas);
+}catch(err){                                   // a shader that won't compile must not leave a blank page
+  document.body.innerHTML = '<div style="color:#f66;font-family:sans-serif;padding:28px;max-width:640px">'
+    + '<h2>WebGL could not start</h2><p>This browser or graphics driver could not compile the grating '
+    + 'shader. Use a current <b>Chrome</b> or <b>Edge</b>; update the graphics driver if it persists.</p>'
+    + '<pre style="white-space:pre-wrap;color:#c88;font-size:12px">'+String(err&&err.message||err)+'</pre></div>';
+  throw err;
+}
+if(!R){ throw new Error('renderer unavailable'); }   // getContext already showed its own notice
 
 /* ===========================================================================
    STIM ROLE: obey the operator over postMessage; go fullscreen on demand.
@@ -491,6 +575,7 @@ if(ROLE === 'stim'){
     else if(m.cmd==='grey'){ R.toGrey(true); }
     else if(m.cmd==='black'){ R.toBlack(); }
     else if(m.cmd==='config'){ R.config(m.cfg); }
+    else if(m.cmd==='freeze'){ R.setFrozen(m.on); }
     else if(m.cmd==='fullscreen'){ document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen(); }
   });
   document.addEventListener('click', ()=>{ document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen(); });
@@ -510,7 +595,7 @@ if(ROLE === 'stim'){
 
   const _S2 = window.STIMPROTOCOL.STIM, _M2 = window.STIMPROTOCOL.MARKER;
   const cfg = { greyLevel:_S2.GREY_LEVEL, sf:_S2.SPATIAL_FREQ_CPP, frameW:_S2.FRAME_W, frameH:_S2.FRAME_H,
-                pixelate:false, waveform:'square', ratio:_M2.RESERVE_RATIO, corner:_M2.CORNER, outW:800, outH:554, fill:true };
+                pixelate:false, waveform:'square', ratio:_M2.RESERVE_RATIO, corner:_M2.CORNER, outW:800, outH:554, fill:false };
   R.config(cfg);
   let durTimer = null, advanceTimer = null;
 
@@ -583,8 +668,38 @@ if(ROLE === 'stim'){
   });
 
   /* ---- custom form wiring ---- */
-  const bind=(id,valId,fmt)=>{ const el=document.getElementById(id),v=document.getElementById(valId);
-    const upd=()=>{ v.textContent=fmt(el.value); }; el.addEventListener('input',upd); upd(); };
+  const bind=(id,valId,fmt,parse)=>{ const el=document.getElementById(id),v=document.getElementById(valId);
+    const upd=()=>{ v.textContent=fmt(el.value); }; el.addEventListener('input',upd); upd();
+    parse = parse || (s=>parseFloat(s));                 // typed display-number -> slider value
+    v.title = 'click to type a value';
+    v.addEventListener('click', ()=>{
+      if(v.querySelector('input.valedit')) return;       // already editing
+      const inp=document.createElement('input'); inp.className='valedit'; inp.type='text';
+      inp.value=(v.textContent||'').replace(/[^0-9.+-]/g,'');   // drop units like ° for editing
+      v.textContent=''; v.appendChild(inp); inp.focus(); inp.select();
+      let closed=false;
+      const commit=(apply)=>{
+        if(closed) return; closed=true;
+        let ok=false;
+        if(apply){
+          const val=parse(inp.value);
+          if(isFinite(val)){
+            let x=val, lo=parseFloat(el.min), hi=parseFloat(el.max);
+            if(isFinite(lo)) x=Math.max(lo,x);
+            if(isFinite(hi)) x=Math.min(hi,x);
+            el.value=x; el.dispatchEvent(new Event('input'));   // fire the whole existing chain
+            ok=true;
+          }
+        }
+        if(!ok) upd();                                   // restore display on cancel / bad input
+      };
+      inp.addEventListener('keydown', e=>{
+        if(e.key==='Enter'){ e.preventDefault(); commit(true); }
+        else if(e.key==='Escape'){ e.preventDefault(); commit(false); }
+      });
+      inp.addEventListener('blur', ()=>commit(true));
+    });
+  };
   bind('ori','oriVal',x=>x+'°'); bind('sf','sfVal',x=>ean(x)); bind('tf','tfVal',x=>(+x).toFixed(1));
   bind('ct','ctVal',x=>(+x).toFixed(2));
   bind('greyBetween','gbVal',x=>(+x).toFixed(1));
@@ -593,7 +708,7 @@ if(ROLE === 'stim'){
     document.querySelectorAll('#moveSeg button').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); });
   document.querySelectorAll('#waveSeg button').forEach(b=>b.onclick=()=>{
     document.querySelectorAll('#waveSeg button').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); pushCfg(); });
-  bind('grey','greyVal',x=>Math.round(+x*255));
+  bind('grey','greyVal',x=>Math.round(+x*255), d=>parseFloat(d)/255);   // typed 0–255 -> 0–1 slider
   bind('frameW','frameWVal',x=>x); bind('frameH','frameHVal',x=>x);
   bind('outW','outWVal',x=>x); bind('outH','outHVal',x=>x);
   bind('ratio','ratioVal',x=>(+x).toFixed(4));
@@ -615,7 +730,15 @@ if(ROLE === 'stim'){
     .forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener('input',pushCfg); });
 
   /* ---- buttons ---- */
-  document.getElementById('present').onclick=()=>present(formTrial());
+  /* ---- manual overlay ---- */
+  const manualBg = document.getElementById('manualBg');
+  const openManual = (e)=>{ if(e) e.preventDefault(); manualBg.classList.add('open'); };
+  const closeManual = ()=> manualBg.classList.remove('open');
+  document.getElementById('manualLink').onclick = openManual;
+  document.getElementById('manualClose').onclick = closeManual;
+  manualBg.addEventListener('click', e=>{ if(e.target===manualBg) closeManual(); });   // click backdrop to close
+
+  document.getElementById('present').onclick=()=> running ? togglePause() : present(formTrial());
   document.getElementById('toGrey').onclick=greyBtn;
   document.getElementById('toBlack').onclick=blackBtn;
   document.getElementById('abort').onclick=greyBtn;
@@ -639,9 +762,10 @@ if(ROLE === 'stim'){
   /* ---- keyboard ---- */
   document.addEventListener('keydown', e=>{
     if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
+    if(manualBg.classList.contains('open')){ if(e.key==='Escape'){ e.preventDefault(); closeManual(); } return; }
     if(e.key==='Escape'||e.key==='g'||e.key==='G'){ e.preventDefault(); greyBtn(); }
     else if(e.key==='b'||e.key==='B'){ e.preventDefault(); blackBtn(); }
-    else if(e.key===' '){ e.preventDefault(); present(formTrial()); }
+    else if(e.key===' '){ e.preventDefault(); running ? togglePause() : present(formTrial()); }
     else if(e.key>='1'&&e.key<='8'){ const p=PRESETS[+e.key-1]; if(p){ setForm(p); present(quickTrial(p)); } }
   });
 
@@ -650,14 +774,17 @@ if(ROLE === 'stim'){
   /* Log ANY block: a grating (with its params) OR a grey/black rest (params shown as —). Grey/black
      rows mark the START of the rest block, so the log is a complete record of what was on screen and
      when — not just the gratings. */
+  // escape any string that flows into innerHTML — protocol files come from disk / git and are untrusted
+  const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const num=v=>{ const n=+v; return Number.isFinite(n)?n:null; };   // coerce; non-numbers -> dash
   function logEntry({type, orientation=null, duration=null, sf=null, tf=null, contrast=null}){
     const now=new Date();
     const wall=now.toLocaleTimeString('uk-UA',{hour12:false})+'.'+String(now.getMilliseconds()).padStart(3,'0');
     const row={n:++logSeq, wall, type, ori:orientation, dur:duration, sf, tf, contrast, ms:now.getTime()};
     rows.push(row);
-    const g=(v,f)=> (v==null ? '—' : f(v));               // dash for the fields a rest block has none of
+    const g=(v,f)=>{ const n=num(v); return n==null ? '—' : f(n); };  // dash for missing/non-numeric fields
     const el=document.createElement('tr');
-    el.innerHTML=`<td>${row.n}</td><td>${wall}</td><td class="type-${type}">${type}</td>
+    el.innerHTML=`<td>${row.n}</td><td>${esc(wall)}</td><td class="type-${esc(type)}">${esc(type)}</td>
       <td>${g(orientation,v=>v+'°')}</td><td>${g(duration,v=>v+'s')}</td><td>${g(sf,v=>v.toFixed(3))}</td>
       <td>${g(tf,v=>v.toFixed(1))}</td><td>${g(contrast,v=>v.toFixed(2))}</td>`;
     logBody.appendChild(el);                              // oldest on top, newest at the bottom
@@ -711,9 +838,10 @@ if(ROLE === 'stim'){
       const row = document.createElement('tr');
       row.className = 'qrow'; row.dataset.i = i; row.draggable = !running;   // drag disabled while running
       const isGrating = it.type==='moving' || it.type==='still';
+      const ori = num(it.orientation), dur = num(it.duration);
       row.innerHTML = `<td class="qhandle" title="drag to reorder">⠿ <span class="qnum">${i+1}</span></td>`+
-        `<td class="type-${it.type}">${it.type}</td>`+
-        `<td>${isGrating ? it.orientation+'°' : '—'}</td><td>${it.duration}s</td>`+
+        `<td class="type-${esc(it.type)}">${esc(it.type)}</td>`+
+        `<td>${isGrating && ori!=null ? ori+'°' : '—'}</td><td>${dur!=null ? dur+'s' : '—'}</td>`+
         `<td><button data-i="${i}" class="qdel linkbtn" style="padding:2px 7px">✕</button></td>`;
       qBody.appendChild(row);
     });
@@ -721,6 +849,9 @@ if(ROLE === 'stim'){
       if(running) return; queue.splice(+b.dataset.i,1); renderQueue(); });
     attachQueueDnD();
     document.getElementById('qCount').textContent = queue.length;
+    const tot = queue.reduce((s,it)=>s+(+it.duration||0), 0);          // total sequence length
+    const m = Math.floor(tot/60), s = Math.round(tot%60);
+    document.getElementById('qDur').textContent = tot>=60 ? `${tot.toFixed(0)} s (${m}:${String(s).padStart(2,'0')})` : `${tot.toFixed(1)} s`;
   }
   function moveQueueItem(from, to){                   // to = insertion index in the pre-removal array
     to = Math.max(0, Math.min(to, queue.length));
@@ -768,22 +899,50 @@ if(ROLE === 'stim'){
     else if(item.type==='black') applyBlack();
     else showGrating(item);                        // grating (no auto-grey; add explicit rest blocks)
   }
+  let paused = false, blockEndAt = 0, blockRemainingMs = 0;
   function presentNext(){
-    if(!running) return;
+    if(!running || paused) return;
     if(runIdx >= queue.length){ stopQueue(); return; }
     const item = queue[runIdx++];
     runQueueBlock(item);
-    advanceTimer = setTimeout(presentNext, Math.max(+item.duration||0, 0.05)*1000);
+    const ms = Math.max(+item.duration||0, 0.05)*1000;
+    blockEndAt = performance.now() + ms;
+    advanceTimer = setTimeout(presentNext, ms);
   }
+  function updateRunUI(){                           // reflect run/pause state on both buttons
+    const hint = '<span class="hint" style="color:#0a3">(Space)</span>';
+    document.getElementById('present').innerHTML =
+      (running && paused) ? '▶ Resume  '+hint : running ? '⏸ Pause  '+hint : '▶ Present  '+hint;
+    document.getElementById('qRun').textContent = running ? '■ Stop queue' : '▶ Run queue';
+  }
+  function pauseQueue(){
+    if(!running || paused) return;
+    paused = true; clearTimeout(advanceTimer);
+    blockRemainingMs = Math.max(0, blockEndAt - performance.now());   // resume from the same spot
+    R.setFrozen(true); sendStim({cmd:'freeze', on:true});             // freeze drift on both screens
+    setState('PAUSED','paused','grey'); logEntry({type:'pause'});     // record the freeze in the log
+    updateRunUI();
+  }
+  function resumeQueue(){
+    if(!running || !paused) return;
+    paused = false;
+    R.setFrozen(false); sendStim({cmd:'freeze', on:false});
+    logEntry({type:'resume'});                                        // record the resume in the log
+    blockEndAt = performance.now() + blockRemainingMs;
+    advanceTimer = setTimeout(presentNext, blockRemainingMs);
+    updateRunUI();
+  }
+  function togglePause(){ paused ? resumeQueue() : pauseQueue(); }
   function runQueue(){
     if(running || !queue.length) return;
-    running = true; runIdx = 0;
-    document.getElementById('qRun').textContent = '■ Stop queue';
+    running = true; paused = false; runIdx = 0;
+    updateRunUI();
     presentNext();                                 // run blocks in order, each for its own duration
   }
   function stopQueue(){
-    running = false; clearTimeout(advanceTimer); clearTimeout(durTimer);
-    document.getElementById('qRun').textContent = '▶ Run queue';
+    running = false; paused = false; clearTimeout(advanceTimer); clearTimeout(durTimer);
+    R.setFrozen(false); sendStim({cmd:'freeze', on:false});
+    updateRunUI();
     applyGrey(true);
   }
   document.getElementById('qAdd').onclick = ()=>addToQueue(formTrial());
@@ -829,14 +988,14 @@ if(ROLE === 'stim'){
     const name = (document.getElementById('qName').value || '').trim();
     if(!name){ alert('Name the protocol first.'); return; }
     if(!queue.length){ alert('The queue is empty — add blocks before saving.'); return; }
+    const post = (overwrite)=> fetch(PROTO_API, {method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({name, blocks: queue.map(b => ({...b})), overwrite})});
     try{
-      const existing = await apiList();
-      if(existing.some(it=>it.name===name || it.id===name) &&
-         !confirm(`Overwrite the saved protocol "${name}"?`)) return;
-    }catch(e){ alert('Cannot reach the server — is  python serve.py  running?'); return; }
-    try{
-      const r = await fetch(PROTO_API, {method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({name, blocks: queue.map(b => ({...b}))})});
+      let r = await post(false);
+      if(r.status === 409){                                   // server saw a name collision on the real file
+        if(!confirm(`A protocol named "${name}" already exists. Overwrite it?`)) return;
+        r = await post(true);
+      }
       if(!r.ok){ const e = await r.json().catch(()=>({})); alert('Could not save: '+(e.error||('http '+r.status))); return; }
       const {id} = await r.json();
       await renderFavs(); document.getElementById('qFav').value = id;

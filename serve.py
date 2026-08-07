@@ -44,22 +44,27 @@ PROTO_DIR = ROOT / "protocols"
 PROTO_DIR.mkdir(exist_ok=True)
 
 DEFAULT_PORT = 8000
+MAX_BODY_BYTES = 1_048_576   # 1 MB cap on a POST body — protocols are tiny; reject anything larger
 
-# --- safe filenames (works on Windows too) ----------------------------------
-# Keep only letters/digits/space/underscore/dash; forbid the reserved Windows
-# device names; never let a name escape protocols/ (path-traversal guard).
-_UNSAFE = re.compile(r"[^A-Za-z0-9 _-]+")
+# --- safe filenames (works on Windows too, keeps non-ASCII names) ------------
+# Strip only the genuinely dangerous characters — the Windows-forbidden set,
+# path separators, and control chars — so Ukrainian/German/French names survive
+# (the page is lang="uk"). The reserved Windows device names are still forbidden,
+# and proto_path() re-checks that nothing escapes protocols/ (path-traversal).
+_UNSAFE = re.compile(r'[\\/:*?"<>|\x00-\x1f]')
 _RESERVED = {"con", "prn", "aux", "nul",
              *(f"com{i}" for i in range(1, 10)),
              *(f"lpt{i}" for i in range(1, 10))}
 
 
 def safe_stem(name: str) -> str | None:
-    """Turn a user-typed protocol name into a safe file stem, or None if empty/illegal."""
-    stem = _UNSAFE.sub("", name or "")
+    """Turn a user-typed protocol name into a safe file stem, or None if empty/illegal.
+
+    Unicode letters are kept; only OS-dangerous characters are removed."""
+    stem = _UNSAFE.sub("", str(name or ""))
     stem = re.sub(r"\s+", " ", stem).strip().strip(".")   # Windows dislikes trailing dots/spaces
     stem = stem[:64].strip()
-    if not stem or stem.lower() in _RESERVED:
+    if not stem or stem in (".", "..") or stem.lower() in _RESERVED:
         return None
     return stem
 
@@ -85,15 +90,15 @@ def list_protocols() -> list[dict]:
     for f in sorted(PROTO_DIR.glob("*.json")):
         try:
             data = json.loads(f.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                blocks = data.get("blocks", [])
+                name = str(data.get("name") or f.stem)      # str() so a non-string name can't crash .lower()
+            else:                       # a bare list of blocks is also accepted
+                blocks = data
+                name = f.stem
         except Exception as e:
             warn(f"protocol {f.name!r} is unreadable and was skipped in the list: {e}")
             continue
-        if isinstance(data, dict):
-            blocks = data.get("blocks", [])
-            name = data.get("name") or f.stem
-        else:                       # a bare list of blocks is also accepted
-            blocks = data
-            name = f.stem
         items.append({"id": f.stem, "name": name,
                       "count": len(blocks) if isinstance(blocks, list) else 0})
     items.sort(key=lambda it: it["name"].lower())
@@ -116,8 +121,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def _body(self):
         n = int(self.headers.get("Content-Length") or 0)
+        if n > MAX_BODY_BYTES:
+            raise ValueError(f"request body too large ({n} bytes > {MAX_BODY_BYTES})")
         raw = self.rfile.read(n) if n > 0 else b""
         return json.loads(raw.decode("utf-8")) if raw else {}
+
+    def _host_ok(self):
+        """Only accept mutating requests aimed at localhost — blocks cross-site POST/DELETE."""
+        host = (self.headers.get("Host") or "").split(":")[0].strip().lower()
+        return host in ("127.0.0.1", "localhost", "[::1]", "::1", "")
 
     def _id_from_path(self, prefix):
         return safe_stem(unquote(self.path[len(prefix):]).strip())
@@ -136,12 +148,20 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 warn(f"protocol {p.name!r} is corrupt and could not be loaded: {e}")
                 return self._json({"error": f"protocol file is corrupt: {e}"}, 500)
-        return super().do_GET()          # static files (index.html, protocol.js, ...)
+        # static files: serve only the page and its one script — never .git/, serve.py, etc.
+        if self.path.split("?")[0] not in ("/", "/index.html", "/protocol.js"):
+            return self._json({"error": "not found"}, 404)
+        return super().do_GET()
 
     def do_POST(self):
         if self.path == "/api/protocols":
+            if not self._host_ok():
+                return self._json({"error": "cross-site request refused"}, 403)
             try:
                 data = self._body()
+            except ValueError as e:
+                warn(f"rejected oversized/invalid POST body: {e}")
+                return self._json({"error": str(e)}, 413)
             except Exception:
                 return self._json({"error": "invalid JSON"}, 400)
             stem = safe_stem((data.get("name") or "").strip())
@@ -153,10 +173,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             p = proto_path(stem)
             if not p:
                 return self._json({"error": "illegal name"}, 400)
+            # server-side overwrite guard on the RESOLVED stem (client name-compare misses
+            # collisions where two display names sanitise to one file)
+            if p.exists() and not bool(data.get("overwrite")):
+                return self._json({"error": f'a protocol named "{stem}" already exists', "exists": True}, 409)
             name = (data.get("name") or "").strip() or stem
             try:
-                p.write_text(json.dumps({"name": name, "blocks": blocks}, ensure_ascii=False, indent=2),
-                             encoding="utf-8")
+                tmp = p.with_suffix(".json.tmp")          # atomic write: temp + replace
+                tmp.write_text(json.dumps({"name": name, "blocks": blocks}, ensure_ascii=False, indent=2),
+                               encoding="utf-8")
+                os.replace(tmp, p)
             except Exception as e:
                 warn(f"could not write protocol {p.name!r}: {e}")
                 return self._json({"error": f"could not write file: {e}"}, 500)
@@ -165,6 +191,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def do_DELETE(self):
         if self.path.startswith("/api/protocols/"):
+            if not self._host_ok():
+                return self._json({"error": "cross-site request refused"}, 403)
             stem = self._id_from_path("/api/protocols/")
             p = proto_path(stem) if stem else None
             if not (p and p.exists()):
@@ -187,7 +215,7 @@ def open_in_browser(url: str) -> str:
     """Open the runner in a Chromium-based browser (Chrome, else Edge), for reliable
     WebGL + fullscreen on the rig; fall back to the system default.
 
-    Note: Internet Explorer CANNOT run this page (no WebGL2 / modern JS). On Windows the
+    Note: Internet Explorer CANNOT run this page (needs modern ES6+ JS and WebGL1). On Windows the
     modern equivalent is Edge (Chromium), which is used automatically if Chrome is absent.
     Returns a short label of what was opened (for the startup message).
     """
