@@ -1,0 +1,81 @@
+====================================================================
+  GRATING STIMULATOR  —  read me first
+====================================================================
+
+TO START (just double-click one file):
+
+  Windows :  START-RUNNER.bat
+  Mac     :  START-RUNNER.command
+
+A small black window opens and a browser (Chrome or Edge) opens the
+Grating Stimulator. Keep the black window open while you work — close
+it (or press Ctrl-C) to stop.
+
+
+FIRST TIME ON A NEW COMPUTER
+--------------------------------------------------------------------
+WINDOWS: nothing to install. Python is bundled (both 32-bit and
+64-bit, in python-win32\ and python-win64\) — the launcher picks the
+one that matches this computer automatically. Fully offline, no admin,
+no internet. Just double-click START-RUNNER.bat.
+
+If it fails to start, a file  runner-log.txt  is written next to the
+launcher with the exact reason — send me that file.
+
+MAC: uses the Python that ships with macOS. If it complains, install
+Python 3 once from https://www.python.org/downloads/ .
+
+(There are NO other packages to install — the runner uses only
+Python's built-in library.)
+
+
+YOUR PROTOCOLS
+--------------------------------------------------------------------
+Saved protocols are plain files in the  protocols\  folder next to
+this file. They travel WITH this folder — copy the whole folder to
+another computer (or a USB stick) and the same protocols are there.
+
+  * In the app:  build a sequence -> name it -> "Save".
+  * It appears as a file in  protocols\ .
+  * "Load" / "Delete" manage them.
+
+14 ready protocols ship in the folder (8-ori sweeps, single-orientation
+repeats, pinki 5-ori).
+
+
+MAKE A DESKTOP SHORTCUT (optional, nicer)
+--------------------------------------------------------------------
+On the stimulation computer, after extracting this folder:
+  Right-click START-RUNNER.bat  ->  "Send to"  ->  "Desktop (create
+  shortcut)".  Now you launch it from the desktop with one click.
+(Do this ON that computer — a shortcut remembers the folder location.)
+
+
+FIRST-CLICK ON WINDOWS — if it doesn't start
+--------------------------------------------------------------------
+Files copied from a USB stick are sometimes "blocked" by Windows.
+One-time fixes:
+  * "This file came from another computer" / it won't run:
+      Right-click START-RUNNER.bat -> Properties ->
+      tick "Unblock" (bottom right) -> OK.  (Same for python-win if asked.)
+  * Blue box "Windows protected your PC":
+      Click "More info" -> "Run anyway".
+  * Tip: EXTRACT the whole ZIP first (don't run from inside the ZIP).
+
+These are one-time. After that, just double-click.
+
+
+IF SOMETHING'S ODD
+--------------------------------------------------------------------
+  * "Python not found" (Windows) -> make sure the  python-win\  folder
+                           is next to START-RUNNER.bat (it ships bundled).
+  * Browser didn't open -> open this address by hand:
+                             http://127.0.0.1:8000
+  * Port busy           -> the launcher picks the next free port and
+                           prints the address in the black window.
+  * Needs a modern browser (Chrome or Edge). Internet Explorer will
+    NOT work. No dedicated graphics card needed.
+  * Keep the black window OPEN while presenting; closing it stops it.
+
+Click the "manual" link in the app (top of the page) for how to use it.
+====================================================================

@@ -5,3 +5,7 @@ node_modules/
 *.log
 __pycache__/
 *.pyc
+python-win/
+python-win32/
+python-win64/
+runner-log.txt
