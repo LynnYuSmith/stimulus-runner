@@ -47,6 +47,7 @@
    *  marker — like the generator's pre/post black padding). Throws on anything else. */
   function pulsesFor(type) {
     if (type === "black") return 0;
+    if (type === "blitz" || type === "bar") return 1;  // single onset blip (placeholder, not a decoder contract)
     const n = MARKER.TYPE_PULSES[type];
     if (n == null) throw new Error("unknown stimulus type: " + type);
     return n;
@@ -62,6 +63,8 @@
   function blockLabel(type, orientationDeg) {
     if (type === "grey") return "Grey";
     if (type === "black") return "Black";
+    if (type === "blitz") return "Blitz";
+    if (type === "bar") return orientationDeg == null ? "Bar sweep" : `Bar ${Number(orientationDeg)}°`;
     const kind = type === "moving" ? "Moving" : "Static";
     return `${kind} ${Number(orientationDeg)}°`;
   }

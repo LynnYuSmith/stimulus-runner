@@ -1,0 +1,68 @@
+{
+  "name": "bar sweep 4dir",
+  "blocks": [
+    {
+      "type": "black",
+      "orientation": null,
+      "duration": 27.0
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "bar",
+      "direction": 0.0,
+      "width": 0.12,
+      "barLum": 1.0,
+      "duration": 4.0
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "bar",
+      "direction": 90.0,
+      "width": 0.12,
+      "barLum": 1.0,
+      "duration": 4.0
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "bar",
+      "direction": 180.0,
+      "width": 0.12,
+      "barLum": 1.0,
+      "duration": 4.0
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "bar",
+      "direction": 270.0,
+      "width": 0.12,
+      "barLum": 1.0,
+      "duration": 4.0
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 8.0
+    },
+    {
+      "type": "black",
+      "orientation": null,
+      "duration": 27.0
+    }
+  ]
+}
