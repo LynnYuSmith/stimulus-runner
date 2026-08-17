@@ -219,6 +219,23 @@
       </div>
     </div>
 
+    <div class="card">
+      <h2>Field zone <span class="hint">(show the grating in a segment of the visual field)</span></h2>
+      <div class="grid2" style="margin-bottom:10px">
+        <label class="f">Columns <span class="val" id="zcolsVal">3</span>
+          <input type="range" id="zcols" min="1" max="6" step="1" value="3"></label>
+        <label class="f">Rows <span class="val" id="zrowsVal">2</span>
+          <input type="range" id="zrows" min="1" max="6" step="1" value="2"></label>
+      </div>
+      <div id="zoneGrid" style="display:grid;gap:5px;margin-bottom:10px"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="linkbtn" id="zFull">▣ Full field</button>
+        <button class="linkbtn" id="qZoneSweep">+ zone sweep (all cells)</button>
+      </div>
+      <p class="hint" style="margin:8px 0 0">Pick a cell → the grating shows only there, rest of the field
+        stays grey. Same grating in every cell = a receptive-field map. “Full field” clears it.</p>
+    </div>
+
     <div class="actions">
       <button class="big present" id="present">▶ Present  <span class="hint" style="color:#0a3">(Space)</span></button>
       <button class="big grey" id="toGrey">Grey (G)</button>
@@ -331,7 +348,7 @@
 
     <h3>Keyboard</h3>
     <ul>
-      <li><kbd>Space</kbd> — present the current grating; <b>while a sequence runs it pauses / resumes</b> in place.</li>
+      <li><kbd>Space</kbd> — present the current grating; <b>while a sequence runs it pauses (→ grey) / resumes (replays the interrupted grating)</b>.</li>
       <li><kbd>G</kbd> / <kbd>Esc</kbd> — grey · <kbd>B</kbd> — black · <kbd>1</kbd>–<kbd>8</kbd> — the eight quick orientations.</li>
     </ul>
 
@@ -346,8 +363,15 @@
     <ul>
       <li>Build a list: <b>+ grating</b>, <b>+ grey</b>, <b>+ black</b>, or a full <b>0–315° sweep</b>. The header shows the block count and total length.</li>
       <li><b>Drag a row</b> by its ⠿ handle to reorder. <b>Run queue</b> plays them in order, each for its own duration.</li>
-      <li><b>Pause / resume</b> a running sequence with <kbd>Space</kbd> or the <b>⏸ Pause</b> button — it resumes from the same spot, and both are written to the log.</li>
+      <li><b>Pause / resume</b> a running sequence with <kbd>Space</kbd> or the <b>⏸ Pause</b> button — <b>pause drops to a grey screen</b>, and <b>resume replays the interrupted grating from the start</b> (it is re-queued, not continued mid-drift). Both are written to the log.</li>
       <li><b>Saved protocols</b> live as files in the <code>protocols/</code> folder — they travel with the folder to any computer.</li>
+    </ul>
+
+    <h3>Field zones (receptive-field mapping)</h3>
+    <ul>
+      <li>Divide the field into a grid (<b>columns × rows</b>, default 3 × 2) and pick a <b>cell</b> — the grating shows only there; the rest of the field stays grey.</li>
+      <li>The grating's spatial &amp; temporal frequency are computed from the <b>whole screen</b>, so it is the <b>same grating</b> in every cell — only its <i>location</i> changes.</li>
+      <li><b>+ zone sweep</b> queues that grating in every cell in turn — a receptive-field map. <b>▣ Full field</b> clears the selection.</li>
     </ul>
 
     <h3>Markers &amp; export</h3>
@@ -419,6 +443,8 @@ function createRenderer(canvas){
     uniform vec3  uMarkerRGB;
     uniform float uMarkerSide; // marker square side, frame px
     uniform int   uCorner;     // 0 tr, 1 tl, 2 br, 3 bl (image coords, y-down)
+    uniform vec2  uApPos;      // visible aperture bottom-left, px (a grid cell; = field rect when full)
+    uniform vec2  uApSize;     // aperture size, px
     void main(){
       vec2 p = gl_FragCoord.xy;                 // origin bottom-left
       if(p.x < uOutPos.x || p.x >= uOutPos.x+uOutSize.x ||
@@ -434,6 +460,12 @@ function createRenderer(canvas){
       bool inMk = (uCorner==0 && xr && yt) || (uCorner==1 && xl && yt)
                || (uCorner==2 && xr && yb) || (uCorner==3 && xl && yb);
       if(inMk){ gl_FragColor = (uMarker==1) ? vec4(uMarkerRGB,1.0) : vec4(0.0,0.0,0.0,1.0); return; }
+      // aperture (grid segment): inside the field but OUTSIDE the visible window → grey rest field.
+      // The grating math below is unchanged, so a patch shown in any cell has identical SF/orientation/
+      // phase → cycling the aperture over the cells is a clean receptive-field map (only LOCATION varies).
+      if(p.x < uApPos.x || p.x >= uApPos.x+uApSize.x || p.y < uApPos.y || p.y >= uApPos.y+uApSize.y){
+        gl_FragColor = vec4(uMeanLum, uMeanLum, uMeanLum, 1.0); return;
+      }
       // fy runs top→bottom (screen) but the reference generator's y runs bottom→top (math),
       // so the fy term is negated — otherwise oblique orientations (45°/135°) come out
       // MIRRORED (the runner's "45°" would be the generator's "135°"). Verified frame-for-
@@ -457,7 +489,8 @@ function createRenderer(canvas){
   const U = n => gl.getUniformLocation(prog,n);
   const u = {res:U('uRes'),outPos:U('uOutPos'),outSize:U('uOutSize'),frame:U('uFrame'),
              sf:U('uSF'),theta:U('uTheta'),phase:U('uPhase'),ct:U('uContrast'),lum:U('uMeanLum'),
-             pix:U('uPixelate'),wave:U('uWaveform'),mk:U('uMarker'),mkrgb:U('uMarkerRGB'),mkside:U('uMarkerSide'),corner:U('uCorner')};
+             pix:U('uPixelate'),wave:U('uWaveform'),mk:U('uMarker'),mkrgb:U('uMarkerRGB'),mkside:U('uMarkerSide'),corner:U('uCorner'),
+             apPos:U('uApPos'),apSize:U('uApSize')};
 
   const st = {
     contrast:0, moving:false, theta:0, sf:_S.SPATIAL_FREQ_CPP, tf:1, phase:0,
@@ -465,6 +498,7 @@ function createRenderer(canvas){
     frameW:_S.FRAME_W, frameH:_S.FRAME_H, pixelate:false, waveform:'square',   // binary = our videos
     ratio:_M.RESERVE_RATIO, corner:_M.CORNER,
     outW:0, outH:0, fill:false,                           // fill => stimulus fills the canvas (default off)
+    zone:null,                                            // null = full field; else {cols,rows,col,row} aperture
     markerOnset:null, markerCount:0,
   };
   const cbs = { onEnded:()=>{} };   // kept for API compatibility; timing is control-owned
@@ -480,6 +514,15 @@ function createRenderer(canvas){
     const dpr = canvas.width / Math.max(canvas.clientWidth,1);
     const w = Math.min(st.outW*dpr, canvas.width), h = Math.min(st.outH*dpr, canvas.height);
     return {x:(canvas.width-w)/2, y:(canvas.height-h)/2, w, h};
+  }
+  // the visible aperture for a grid zone within field rect r. row 0 = TOP; gl_FragCoord.y is
+  // bottom-up, so the row is flipped. Returns the whole field when no zone is set.
+  function cellRect(r, z){
+    if(!z) return r;
+    const cols=Math.max(1,z.cols|0), rows=Math.max(1,z.rows|0);
+    const col=Math.min(cols-1,Math.max(0,z.col|0)), row=Math.min(rows-1,Math.max(0,z.row|0));
+    const cw=r.w/cols, ch=r.h/rows;
+    return { x:r.x+col*cw, y:r.y+(rows-1-row)*ch, w:cw, h:ch };
   }
   const markerSide = () => window.STIMPROTOCOL.markerSidePx(st.frameH, st.frameW, st.ratio);
 
@@ -499,9 +542,12 @@ function createRenderer(canvas){
 
     resize();
     const r = outRect();
+    const ap = cellRect(r, st.zone);            // visible window = a grid cell, or the whole field
     gl.uniform2f(u.res, canvas.width, canvas.height);
     gl.uniform2f(u.outPos, r.x, r.y);
     gl.uniform2f(u.outSize, r.w, r.h);
+    gl.uniform2f(u.apPos, ap.x, ap.y);
+    gl.uniform2f(u.apSize, ap.w, ap.h);
     gl.uniform2f(u.frame, st.frameW, st.frameH);
     gl.uniform1f(u.sf, st.sf);
     gl.uniform1f(u.theta, st.theta*Math.PI/180);
@@ -523,6 +569,7 @@ function createRenderer(canvas){
     st.theta = tr.orientation; if(tr.sf!=null) st.sf = tr.sf; st.tf = tr.tf;
     st.contrast = tr.contrast; st.moving = tr.moving; st.phase = 0;
     st.meanLum = st.greyLevel;                          // grating oscillates around grey
+    st.zone = tr.zone || null;                          // per-trial aperture (absent → full field)
     st.markerCount = tr.moving ? TYPE_PULSES.moving : TYPE_PULSES.still;
     st.markerOnset = performance.now();
   }
@@ -544,6 +591,7 @@ function createRenderer(canvas){
     if(c.outW!=null) st.outW = c.outW;
     if(c.outH!=null) st.outH = c.outH;
     if(c.fill!=null) st.fill = !!c.fill;
+    if('zone' in c) st.zone = c.zone;                    // live aperture preview (null = full field)
   }
 
   return { present, toGrey, toBlack, config, setFrozen, st, cbs };
@@ -615,6 +663,7 @@ if(ROLE === 'stim'){
       contrast:+document.getElementById('ct').value,
       duration:+document.getElementById('dur').value,
       moving: document.querySelector('#moveSeg .sel').dataset.mv==='moving',
+      zone: currentZone(),                         // visible field segment (null = full field)
     };
   }
   /* Reflect a preset's ORIENTATION into the custom form, so "+ grating" queues THAT orientation.
@@ -630,7 +679,7 @@ if(ROLE === 'stim'){
      button stays static (marker = 2 pulses), a moving one drifts (3 pulses). */
   function quickTrial(p){
     const moving = document.querySelector('#moveSeg .sel').dataset.mv==='moving';
-    return { ...p, moving, type: moving ? 'moving' : 'still' };
+    return { ...p, moving, type: moving ? 'moving' : 'still', zone: currentZone() };
   }
   function showGrating(tr){                       // display a grating (no auto-return timer)
     tr.trialId = tr.trialId || ++trialSeq;
@@ -728,6 +777,32 @@ if(ROLE === 'stim'){
   }
   ['grey','sf','frameW','frameH','pixelate','ratio','corner','fillScreen','outW','outH']
     .forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener('input',pushCfg); });
+
+  /* ---- field zones (grid segments): show a grating in ONE cell of the visual field.
+          The renderer windows the grating to the cell (aperture); SF/orientation/phase are
+          identical in every cell, so cycling the cell = a receptive-field map. ---- */
+  let zoneSel = null;                              // null = full field; else {col,row}
+  const zCols=()=>+document.getElementById('zcols').value, zRows=()=>+document.getElementById('zrows').value;
+  function currentZone(){ return zoneSel ? {cols:zCols(),rows:zRows(),col:zoneSel.col,row:zoneSel.row} : null; }
+  function previewZone(){ const z=currentZone(); R.config({zone:z}); sendStim({cmd:'config', cfg:{zone:z}}); }
+  function renderZoneGrid(){
+    const cols=zCols(), rows=zRows(), g=document.getElementById('zoneGrid');
+    g.style.gridTemplateColumns=`repeat(${cols},1fr)`; g.innerHTML='';
+    for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+      const b=document.createElement('button'); b.className='preset'; b.style.padding='10px 0';
+      b.textContent=`${c+1},${r+1}`;
+      if(zoneSel && zoneSel.col===c && zoneSel.row===r){ b.style.borderColor='var(--accent)'; b.style.color='#fff'; }
+      b.onclick=()=>{ zoneSel={col:c,row:r}; renderZoneGrid(); previewZone(); };
+      g.appendChild(b);
+    }
+  }
+  document.getElementById('zFull').onclick=()=>{ zoneSel=null; renderZoneGrid(); previewZone(); };
+  bind('zcols','zcolsVal',x=>x); bind('zrows','zrowsVal',x=>x);
+  ['zcols','zrows'].forEach(id=>document.getElementById(id).addEventListener('input',()=>{
+    if(zoneSel){ zoneSel.col=Math.min(zoneSel.col,zCols()-1); zoneSel.row=Math.min(zoneSel.row,zRows()-1); }
+    renderZoneGrid(); previewZone();
+  }));
+  renderZoneGrid();
 
   /* ---- buttons ---- */
   /* ---- manual overlay ---- */
@@ -839,9 +914,11 @@ if(ROLE === 'stim'){
       row.className = 'qrow'; row.dataset.i = i; row.draggable = !running;   // drag disabled while running
       const isGrating = it.type==='moving' || it.type==='still';
       const ori = num(it.orientation), dur = num(it.duration);
+      const z = it.zone;
+      const ztxt = z ? ` <span class="hint">▦${z.col+1},${z.row+1}</span>` : '';
       row.innerHTML = `<td class="qhandle" title="drag to reorder">⠿ <span class="qnum">${i+1}</span></td>`+
         `<td class="type-${esc(it.type)}">${esc(it.type)}</td>`+
-        `<td>${isGrating && ori!=null ? ori+'°' : '—'}</td><td>${dur!=null ? dur+'s' : '—'}</td>`+
+        `<td>${isGrating && ori!=null ? ori+'°'+ztxt : '—'}</td><td>${dur!=null ? dur+'s' : '—'}</td>`+
         `<td><button data-i="${i}" class="qdel linkbtn" style="padding:2px 7px">✕</button></td>`;
       qBody.appendChild(row);
     });
@@ -889,7 +966,7 @@ if(ROLE === 'stim'){
   function pushBlock(b){ queue.push(b); renderQueue(); }
   function addToQueue(tr){
     pushBlock({ type:tr.type, orientation:tr.orientation, sf:tr.sf, tf:tr.tf,
-                contrast:tr.contrast, duration:tr.duration, moving:tr.moving });
+                contrast:tr.contrast, duration:tr.duration, moving:tr.moving, zone:tr.zone||null });
   }
   function addBlock(type){                        // a rest block (grey/black) of the rest-slider duration
     pushBlock({ type, orientation:null, duration:(+greyBetweenEl.value||0) });
@@ -899,7 +976,7 @@ if(ROLE === 'stim'){
     else if(item.type==='black') applyBlack();
     else showGrating(item);                        // grating (no auto-grey; add explicit rest blocks)
   }
-  let paused = false, blockEndAt = 0, blockRemainingMs = 0;
+  let paused = false, blockEndAt = 0, pausedIdx = 0;
   function presentNext(){
     if(!running || paused) return;
     if(runIdx >= queue.length){ stopQueue(); return; }
@@ -918,18 +995,18 @@ if(ROLE === 'stim'){
   function pauseQueue(){
     if(!running || paused) return;
     paused = true; clearTimeout(advanceTimer);
-    blockRemainingMs = Math.max(0, blockEndAt - performance.now());   // resume from the same spot
-    R.setFrozen(true); sendStim({cmd:'freeze', on:true});             // freeze drift on both screens
-    setState('PAUSED','paused','grey'); logEntry({type:'pause'});     // record the freeze in the log
+    pausedIdx = Math.max(0, runIdx - 1);           // the block that was on screen when paused
+    applyGrey(true);                               // PAUSE → grey screen (a real rest block; marker fires)
+    setState('PAUSED', `paused · resume replays #${pausedIdx+1}`, 'grey');
+    logEntry({type:'pause'});
     updateRunUI();
   }
   function resumeQueue(){
     if(!running || !paused) return;
     paused = false;
-    R.setFrozen(false); sendStim({cmd:'freeze', on:false});
-    logEntry({type:'resume'});                                        // record the resume in the log
-    blockEndAt = performance.now() + blockRemainingMs;
-    advanceTimer = setTimeout(presentNext, blockRemainingMs);
+    logEntry({type:'resume'});
+    runIdx = pausedIdx;                            // re-queue the interrupted block → replay it WHOLE
+    presentNext();                                 // presents queue[pausedIdx] fresh, for its full duration
     updateRunUI();
   }
   function togglePause(){ paused ? resumeQueue() : pauseQueue(); }
@@ -955,6 +1032,18 @@ if(ROLE === 'stim'){
       if(i>0 && gap>0) addBlock('grey');         // grey gap between gratings
       addToQueue({...base, orientation:o, moving:true, type:'moving'});
     });
+  };
+  /* receptive-field sweep: the SAME grating shown in every cell of the grid in turn (only the
+     visible field zone changes; SF/orientation/phase are computed from the full screen). */
+  document.getElementById('qZoneSweep').onclick = ()=>{
+    const base = formTrial();
+    const cols = zCols(), rows = zRows(), gap = +greyBetweenEl.value||0;
+    let first = true;
+    for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+      if(!first && gap>0) addBlock('grey');      // grey rest between patches
+      addToQueue({...base, zone:{cols,rows,col:c,row:r}});
+      first = false;
+    }
   };
   document.getElementById('qClear').onclick = ()=>{ if(!running){ queue.length=0; renderQueue(); } };
   document.getElementById('qRun').onclick = ()=>{ running ? stopQueue() : runQueue(); };
