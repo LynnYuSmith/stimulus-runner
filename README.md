@@ -1,5 +1,7 @@
 # stimulus-runner
 
+[![tests](https://github.com/LynnYuSmith/stimulus-runner/actions/workflows/tests.yml/badge.svg)](https://github.com/LynnYuSmith/stimulus-runner/actions/workflows/tests.yml)
+
 An interactive, browser-based **drifting/static grating presenter** for two-photon rig
 experiments. A grey (or black) screen you switch — seamlessly — to a grating of a chosen
 orientation, spatial/temporal frequency, contrast, and duration, then back. Build a
