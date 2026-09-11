@@ -21,6 +21,8 @@ jobs:
           node-version: ${{ matrix.node }}
       - name: Protocol unit tests
         run: node test/protocol.test.js
+      - name: Export tests — the buttons actually clicked
+        run: node test/exports.test.js
       - name: Syntax-check the page and the server
         run: |
           node --check protocol.js

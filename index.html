@@ -1047,17 +1047,17 @@ if(ROLE === 'stim'){
   };
   /* Provenance goes in the JSON, which is machine-read; the CSV stays purely tabular so it
      still opens cleanly in Excel. */
-  document.getElementById('expJson').onclick=()=>download('stimlog.json', JSON.stringify({
+  document.getElementById('expJson').onclick=guard('Export JSON', ()=>download('stimlog.json', JSON.stringify({
     session_started: sessionStartedAt.toISOString(),
     exported: new Date().toISOString(),
-    marker_fps: MARKER_FPS,
+    marker_fps: _M.FPS,
     note: 'direction_deg is the DIRECTION of drift (0..315); a grating orientation is that '
         + 'value mod 180, so 225 and 45 share an orientation and differ in direction. '
         + 'unix_ms is the intended onset; the recording photodiode gives the frame-exact one, '
         + 'about two display frames later.',
     rows: rows
-  }, null, 2), 'application/json');
-  document.getElementById('expCsv').onclick=()=>{
+  }, null, 2), 'application/json'));
+  document.getElementById('expCsv').onclick=guard('Export CSV', ()=>{
     /* direction_deg is the honest name: this is the direction of drift, 0..315 in 45 deg
        steps, and a grating's ORIENTATION is that mod 180. The pipeline keeps the two apart
        (events_pulse stores both), and calling a direction an orientation is an invitation to
@@ -1068,9 +1068,26 @@ if(ROLE === 'stim'){
     const body=rows.map(r=>[r.n,r.wall,r.ms,r.type,r.ori,r.ori,r.dur,r.sf,r.tf,r.contrast]
       .join(',')).join('\n');
     download('stimlog.csv', head+'\n'+body, 'text/csv');
-  };
+  });
   function download(name,text,mime){ const b=new Blob([text],{type:mime}); const a=document.createElement('a');
     a.href=URL.createObjectURL(b); a.download=name; a.click(); URL.revokeObjectURL(a.href); }
+  /* An exception thrown inside an onclick handler reaches the console and nowhere else, so the
+     button simply does nothing and the operator has no way to tell a failure from a browser
+     that swallowed the download. On 2026-09-11 `MARKER_FPS` -- a constant that had been renamed
+     into `MARKER.FPS` -- was still referenced by BOTH json exports: they threw ReferenceError on
+     every click while Export CSV, which never touched it, kept working. The session's protocol
+     had to be written out by hand. So every export says what went wrong, out loud. */
+  function guard(label, fn){
+    return function(){
+      try { fn.apply(this, arguments); }
+      catch(err){
+        console.error(label, err);
+        alert(label + ' failed:\n\n' + (err && err.message ? err.message : err)
+              + '\n\nNothing was written. The log itself is intact — try another export, '
+              + 'and send this message on.');
+      }
+    };
+  }
 
   /* ---- played-protocol bookkeeping: record blocks in order (grey + gratings) with
           their actual durations, so the export overlays onto the recording MAT ---- */
@@ -1115,7 +1132,7 @@ if(ROLE === 'stim'){
        absolute timeline has gaps cut out of it, so nobody treats start_time_s as a clock.
        The recording's own photodiode is the clock; this file supplies order and labels. */
     proto.session_started = sessionStartedAt.toISOString();
-    proto.marker_fps = MARKER_FPS;
+    proto.marker_fps = _M.FPS;
     proto.unattended_grey_blocks = idleGreyBlocks;
     proto.unattended_grey_seconds = Math.round(idleGreySeconds);
     proto.timing_note = 'Durations are measured and every block is kept, grey included. '
@@ -1125,7 +1142,7 @@ if(ROLE === 'stim'){
       + 'recording clock. Align on the photodiode; use this file for order and labels.';
     download('protocol_played.json', JSON.stringify(proto,null,2), 'application/json');
   }
-  document.getElementById('expProto').onclick = exportProtocol;
+  document.getElementById('expProto').onclick = guard('Export protocol', exportProtocol);
 
   /* ---- queue / sequencer: runs items in order, grey between, auto-advancing ---- */
   const queue = []; const qBody = document.getElementById('queueBody');
