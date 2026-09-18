@@ -148,6 +148,13 @@
 
   /* ---- log ---- */
   #logCard{max-height:220px;display:flex;flex-direction:column}
+  /* The resume banner: one question, two answers, shown only when a saved session exists.
+     Deliberately not a modal -- the operator may want to glance at the queue first. */
+  #resume{display:none;border:1px solid var(--accent);border-radius:8px;padding:10px 12px;margin-bottom:12px;
+    background:var(--panel-2);font-size:13px;line-height:1.45}
+  #resume.show{display:block} #resume b{color:var(--ink)}
+  #resume .acts{display:flex;gap:8px;margin-top:8px} #resume .acts button{flex:1}
+  #resume .acts .go{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
   .logtools{display:flex;gap:8px;margin-bottom:8px;align-items:center}
   /* The saved-state badge. Green is the quiet normal; red must be impossible to miss,
      because an unsaved trial log is the one failure this whole path exists to prevent. */
@@ -184,6 +191,14 @@
     <header>
       <h1>Grating Stimulator <span class="ver">v1 · <a href="#" id="manualLink" title="how to use this">manual</a></span></h1>
     </header>
+
+    <div id="resume" role="status">
+      <div id="resumeText"></div>
+      <div class="acts">
+        <button class="go" id="resumeYes">Continue that session</button>
+        <button id="resumeNo">Start a new one</button>
+      </div>
+    </div>
 
     <!-- STATUS: reflects the live screen state (GREY / BLACK / STILL / MOVING / RUNNING / PAUSED) -->
     <div class="card">
@@ -1486,6 +1501,109 @@ if(ROLE === 'stim'){
 
   openBlock('grey', null);   // the session starts on grey
   setState('GREY','idle','grey');
+
+  /* ---- the session, saved by itself ----------------------------------------------------------
+     The trial log says what was played; this says what the cockpit looked like -- the queue,
+     the form, the screen settings, where the run stood. It is PUT to the server on every
+     change (debounced), under the SAME id as the stimlog, so after a frozen machine the page
+     can offer to pick up where it was and keep writing into the same log. No button; a tool
+     you have to remember to save is a tool that loses the morning you forgot (pupil-monitor).
+
+     One thing is never restored: `running`. After a crash the queue stands at its position,
+     paused, and the operator says go. A queue that resumed playing by itself the moment a
+     page loaded would be a stimulus nobody asked for. */
+  const FORM_IDS = ['ori','sf','tf','ct','dur','greyBetween','grey','frameW','frameH','outW','outH',
+                    'ratio','corner','zcols','zrows','blLum','barLumR','barDir','barW'];
+  const CHECK_IDS = ['pixelate','fillScreen'];
+  const segSel = id => { const b=document.querySelector('#'+id+' .sel'); return b ? {...b.dataset} : null; };
+  function sessionState(){
+    const form = {};
+    FORM_IDS.forEach(id=>{ const el=document.getElementById(id); if(el) form[id]=el.value; });
+    CHECK_IDS.forEach(id=>{ const el=document.getElementById(id); if(el) form[id]=!!el.checked; });
+    return {
+      saved: new Date().toISOString(),
+      session_started: sessionStartedAt.toISOString(),
+      queue: queue.map(it=>({...it})),
+      form, moveSeg: segSel('moveSeg'), waveSeg: segSel('waveSeg'), zone: zoneSel ? {...zoneSel} : null,
+      run: { runIdx, paused, was_running: running, next_block: running ? Math.max(0, runIdx - (paused?0:1)) : runIdx },
+      log: { n: logSeq, rows: rows.length },
+      screen: { state: stateName.textContent, sub: stateSub.textContent },
+    };
+  }
+  let sessTimer = 0, sessDirty = false, sessInflight = false;
+  function saveSession(){                        // debounced: many changes, one PUT
+    sessDirty = true;
+    clearTimeout(sessTimer);
+    sessTimer = setTimeout(flushSession, 400);
+  }
+  function flushSession(){
+    if(!sessDirty || sessInflight) return;
+    sessDirty = false; sessInflight = true;
+    const body = JSON.stringify(sessionState());
+    try{
+      window.fetch('/api/session/'+encodeURIComponent(sessionId), { method:'PUT', keepalive:true,
+          headers:{'Content-Type':'application/json'}, body })
+        .then(r=>{ if(!(r && r.ok)) throw new Error('HTTP '+(r&&r.status)); })
+        .catch(err=> setSave('bad', 'session NOT saved', 'the cockpit state could not be written ('+err.message+')'))
+        .finally(()=>{ sessInflight=false; if(sessDirty) flushSession(); });
+    }catch(err){ sessInflight=false; setSave('bad','session NOT saved', String(err&&err.message||err)); }
+  }
+  /* Every path that changes what the session IS goes through here. Wrapping the functions
+     rather than sprinkling calls keeps the list of "what counts as a change" in one place. */
+  const _renderQueue = renderQueue; renderQueue = function(){ _renderQueue(); saveSession(); };
+  const _setState = setState; setState = function(a,b,c){ _setState(a,b,c); saveSession(); };
+  [...FORM_IDS, ...CHECK_IDS].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener('input', saveSession); });
+  document.querySelectorAll('#moveSeg button, #waveSeg button').forEach(b=>b.addEventListener('click', saveSession));
+  window.addEventListener('pagehide', ()=>{ sessDirty = true; flushSession(); });
+
+  function applySession(st){
+    // form first, so the queue's blocks are built against the right grey/screen settings
+    const f = st.form || {};
+    FORM_IDS.forEach(id=>{ const el=document.getElementById(id); if(el && f[id]!=null){ el.value=f[id]; el.dispatchEvent(new Event('input')); } });
+    CHECK_IDS.forEach(id=>{ const el=document.getElementById(id); if(el && f[id]!=null){ el.checked=!!f[id]; el.dispatchEvent(new Event('input')); } });
+    const pick=(id,key,val)=>{ if(val==null) return; document.querySelectorAll('#'+id+' button').forEach(b=>{
+      b.classList.toggle('sel', b.dataset[key]===val); }); };
+    if(st.moveSeg) pick('moveSeg','mv',st.moveSeg.mv);
+    if(st.waveSeg) pick('waveSeg','wave',st.waveSeg.wave);
+    pushCfg();
+    zoneSel = st.zone ? {col:+st.zone.col, row:+st.zone.row} : null; renderZoneGrid(); previewZone();
+    queue.length = 0; (st.queue||[]).forEach(it=>queue.push({...it}));
+    // the run: stand at the block that was on screen, paused, never playing
+    running = false; paused = false;
+    runIdx = Math.max(0, Math.min(+(st.run && st.run.next_block) || 0, queue.length));
+    _renderQueue();
+    updateRunUI();
+    if(st.log){ logSeq = +st.log.n || 0; }
+    setState('GREY', queue.length ? `resumed · queue at #${runIdx+1} of ${queue.length}` : 'resumed', 'grey');
+  }
+  function offerResume(){
+    try{
+      window.fetch('/api/session').then(r=> r && r.ok ? r.json() : null).then(d=>{
+        if(!d || !d.session || !d.state) return;
+        const st = d.state, when = new Date(st.saved || 0);
+        const ageMin = (Date.now() - when.getTime())/60000;
+        if(!(ageMin < 12*60)) return;                       // a session from another day is not "that session"
+        const q = (st.queue||[]).length;
+        const pos = st.run ? (+st.run.next_block||0) : 0;
+        const hh = String(when.getHours()).padStart(2,'0'), mm = String(when.getMinutes()).padStart(2,'0');
+        document.getElementById('resumeText').innerHTML =
+          `Continue the session from <b>${hh}:${mm}</b>? ` +
+          (q ? `Queue of <b>${q}</b> block${q===1?'':'s'}, ${st.run && st.run.was_running ? `was playing block <b>#${pos+1}</b>` : `next block <b>#${pos+1}</b>`}.` : `The queue was empty.`) +
+          (st.log && st.log.n ? ` ${st.log.n} epoch${st.log.n===1?'':'s'} in its log.` : '') +
+          ` Continuing keeps writing into the same trial log.`;
+        const box = document.getElementById('resume'); box.classList.add('show');
+        document.getElementById('resumeYes').onclick = ()=>{
+          box.classList.remove('show');
+          sessionId = d.session;                          // the SAME stimlog file continues
+          sessionStartedAt = new Date(st.session_started || st.saved || Date.now());
+          applySession(st);
+          setSave('ok', 'resumed · saving to logs/', 'this session continues its own files');
+        };
+        document.getElementById('resumeNo').onclick = ()=>{ box.classList.remove('show'); saveSession(); };
+      }).catch(()=>{});
+    }catch(_){}
+  }
+  offerResume();
 }
 </script>
 </body>

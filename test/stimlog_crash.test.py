@@ -310,6 +310,96 @@ with tempfile.TemporaryDirectory() as td:
         by_id = dict((s["id"], s["rows"]) for s in listing["sessions"])
         assert by_id == {"20260918-210000": 2, "20260918-213000": 1}, by_id
 
+    # ---- the session file beside the log ---------------------------------------------------
+
+    def put(srv, sid, state):
+        body = json.dumps(state).encode("utf-8")
+        req = urllib.request.Request(srv.url + "/api/session/" + sid, data=body, method="PUT",
+                                     headers={"Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=5) as r:
+                return r.status, json.loads(r.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read().decode("utf-8") or "{}")
+
+    @test("a PUT session lands as session_<id>.json beside the log, and GET returns it")
+    def _():
+        d = LOGS / "s1"
+        srv = Server(d)
+        try:
+            code, resp = put(srv, "20260918-124700-ab12", {"saved": "2026-09-18T12:47:00", "queue": [1, 2, 3]})
+            assert code == 200, (code, resp)
+            assert (d / "session_20260918-124700-ab12.json").exists()
+            got = srv.get("/api/session/20260918-124700-ab12")
+        finally:
+            srv.stop()
+        assert got["state"]["queue"] == [1, 2, 3]
+
+    @test("SIGKILL right after a PUT loses nothing; the file is whole")
+    def _():
+        d = LOGS / "s2"
+        srv = Server(d)
+        try:
+            for k in range(1, 6):
+                put(srv, "20260918-130000-zz01", {"saved": "2026-09-18T13:0%d:00" % k, "k": k})
+            srv.kill()
+        finally:
+            srv.stop()
+        st = json.loads((d / "session_20260918-130000-zz01.json").read_text())
+        assert st["k"] == 5, st
+        assert not list(d.glob("*.tmp")), "a temp file was left behind"
+
+    @test("GET /api/session picks the newest by its own saved stamp, not by name")
+    def _():
+        d = LOGS / "s3"
+        srv = Server(d)
+        try:
+            put(srv, "20260918-090000-aaaa", {"saved": "2026-09-18T12:59:00", "who": "late-saved"})
+            put(srv, "20260918-120000-bbbb", {"saved": "2026-09-18T12:10:00", "who": "early-saved"})
+            got = srv.get("/api/session")
+        finally:
+            srv.stop()
+        assert got["session"] == "20260918-090000-aaaa", got
+        assert got["state"]["who"] == "late-saved"
+
+    @test("a corrupt session file is skipped, not allowed to hide a readable one")
+    def _():
+        d = LOGS / "s4"
+        srv = Server(d)
+        try:
+            put(srv, "20260918-140000-good", {"saved": "2026-09-18T14:00:00"})
+        finally:
+            srv.stop()
+        (d / "session_20260918-150000-bad0.json").write_text("{not json")
+        srv2 = Server(d)
+        try:
+            got = srv2.get("/api/session")
+        finally:
+            srv2.stop()
+        assert got["session"] == "20260918-140000-good", got
+
+    @test("a session id cannot escape, an empty or non-object state is refused, cross-site is refused")
+    def _():
+        d = LOGS / "s5"
+        srv = Server(d)
+        try:
+            assert put(srv, "..%2F..%2Fpwned", {"a": 1})[0] == 400
+            assert put(srv, "20260918-160000-cccc", {})[0] == 400
+            assert put(srv, "20260918-160000-cccc", [1, 2])[0] == 400
+            req = urllib.request.Request(srv.url + "/api/session/20260918-160000-cccc",
+                                         data=b'{"a":1}', method="PUT",
+                                         headers={"Content-Type": "application/json", "Host": "evil.example.com"})
+            try:
+                with urllib.request.urlopen(req, timeout=5):
+                    code = 200
+            except urllib.error.HTTPError as e:
+                code = e.code
+            assert code == 403, code
+            assert srv.get("/api/session")["session"] is None
+        finally:
+            srv.stop()
+        assert list(d.glob("*")) == [], list(d.glob("*"))
+
 print()
 if failed:
     print("%d passed, %d FAILED" % (passed, len(failed)))

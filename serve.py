@@ -23,6 +23,15 @@ opens the page in your browser, and serves:
     POST   /api/stimlog           append played epochs  <- {"session": ..., "rows": [...]}
     GET    /api/stimlog           list session logs     -> {"sessions": [{id,rows,bytes}]}
     GET    /api/stimlog?session=  replay one session     -> {"session": ..., "rows": [...]}
+    PUT    /api/session/<id>      save the cockpit state <- {queue, form, cfg, run, ...}
+    GET    /api/session           the newest saved state -> {"session": ..., "state": {...}}
+    GET    /api/session/<id>      one saved state
+
+**The session file is the other half of the trial log.** ``stimlog_<id>.jsonl`` is what was
+played; ``session_<id>.json`` beside it is what the cockpit looked like -- the queue, the form,
+the screen settings, where the run stood. The page PUTs it on every change, so after a frozen
+machine the runner can offer to pick up where it was. Same pattern as pupil-monitor's
+``pupil_<stamp>.csv`` + ``pupil_<stamp>.json``: data, and beside it what produced the data.
 
 Set ``STIMULUS_RUNNER_LOG_DIR`` to write the trial log somewhere else (a data disk, say);
 by default it goes to ``logs/`` beside this file.
@@ -217,6 +226,40 @@ def list_stimlogs() -> list[dict]:
     return items
 
 
+def session_path(session: str):
+    """``logs/session_<id>.json``, or None if the id is not acceptable (same rule as the log)."""
+    paths = log_paths(session)
+    return paths[0].with_name(f"session_{session}.json") if paths else None
+
+
+def save_session(path: Path, state: dict) -> None:
+    """Atomic: temp + replace, so a crash mid-write leaves the previous state, never half of one."""
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(state, ensure_ascii=False, indent=1), encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def latest_session():
+    """The newest session file by its own ``saved`` stamp, falling back to mtime.
+
+    Returns (id, state) or (None, None). A file that will not parse is skipped with a warning
+    rather than hiding every older, readable one behind it.
+    """
+    best = None
+    for f in LOG_DIR.glob("session_*.json"):
+        try:
+            state = json.loads(f.read_text(encoding="utf-8"))
+        except Exception as e:
+            warn(f"session file {f.name!r} is unreadable and was skipped: {e}")
+            continue
+        if not isinstance(state, dict):
+            continue
+        key = (str(state.get("saved") or ""), f.stat().st_mtime)
+        if best is None or key > best[0]:
+            best = (key, f.stem[len("session_"):], state)
+    return (best[1], best[2]) if best else (None, None)
+
+
 def warn(msg: str) -> None:
     """A loud, visible warning — failures must never pass silently."""
     sys.stderr.write(f"[stimulus-runner] WARNING: {msg}\n")
@@ -303,6 +346,23 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 warn(f"protocol {p.name!r} is corrupt and could not be loaded: {e}")
                 return self._json({"error": f"protocol file is corrupt: {e}"}, 500)
+        if self.path == "/api/session":
+            sid, state = latest_session()
+            if sid is None:
+                return self._json({"session": None, "state": None})
+            return self._json({"session": sid, "state": state})
+        if self.path.startswith("/api/session/"):
+            sid = unquote(self.path[len("/api/session/"):])
+            p = session_path(sid)
+            if not p:
+                return self._json({"error": "illegal session id"}, 400)
+            if not p.exists():
+                return self._json({"error": "not found"}, 404)
+            try:
+                return self._json({"session": sid, "state": json.loads(p.read_text(encoding="utf-8"))})
+            except Exception as e:
+                warn(f"session {p.name!r} is corrupt: {e}")
+                return self._json({"error": f"session file is corrupt: {e}"}, 500)
         if self.path.split("?")[0] == "/api/stimlog":
             q = parse_qs(urlparse(self.path).query)
             sid = (q.get("session") or [""])[0]
@@ -383,6 +443,31 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 warn(f"could not write protocol {p.name!r}: {e}")
                 return self._json({"error": f"could not write file: {e}"}, 500)
             return self._json({"id": stem, "name": name})
+        return self._json({"error": "not found"}, 404)
+
+    def do_PUT(self):
+        if self.path.startswith("/api/session/"):
+            if not self._host_ok():
+                return self._json({"error": "cross-site request refused"}, 403)
+            sid = unquote(self.path[len("/api/session/"):])
+            p = session_path(sid)
+            if not p:
+                return self._json({"error": "illegal session id"}, 400)
+            try:
+                state = self._body()
+            except BodyTooLarge as e:
+                warn(f"rejected oversized session body: {e}")
+                return self._json({"error": str(e)}, 413)
+            except Exception:
+                return self._json({"error": "invalid JSON"}, 400)
+            if not isinstance(state, dict) or not state:
+                return self._json({"error": "state must be a non-empty object"}, 400)
+            try:
+                save_session(p, state)
+            except Exception as e:
+                warn(f"COULD NOT SAVE THE SESSION {p.name!r}: {e}")
+                return self._json({"error": f"could not save: {e}"}, 500)
+            return self._json({"ok": True, "file": p.name})
         return self._json({"error": "not found"}, 404)
 
     def do_DELETE(self):

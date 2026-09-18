@@ -67,6 +67,20 @@ buttons on the row — they do the same thing and never depend on the
 browser's drag support. If a drag ever leaves the page unresponsive,
 press Esc, then use the arrows.
 
+THE SESSION SAVES ITSELF TOO. Next to the log there is
+
+    logs\session_<date>-<time>-<id>.json   <- the queue, the settings, where the run stood
+
+written every time something changes. If the computer freezes or the
+browser dies, start the runner again: at the top of the page it asks
+
+    "Continue the session from 12:47?  Queue of 15 blocks, next block #7."
+
+Click "Continue that session" and the queue, the grating settings and
+the position come back exactly as they were, PAUSED — nothing plays
+until you press Run. The trial log keeps writing into the same file.
+"Start a new one" begins fresh.
+
 "Clear" starts a NEW log file. The old one stays complete — it is
 never added to afterwards.
 
