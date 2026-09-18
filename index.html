@@ -148,7 +148,13 @@
 
   /* ---- log ---- */
   #logCard{max-height:220px;display:flex;flex-direction:column}
-  .logtools{display:flex;gap:8px;margin-bottom:8px}
+  .logtools{display:flex;gap:8px;margin-bottom:8px;align-items:center}
+  /* The saved-state badge. Green is the quiet normal; red must be impossible to miss,
+     because an unsaved trial log is the one failure this whole path exists to prevent. */
+  #logSaveState{margin-left:auto;font-size:12px;padding:3px 8px;border-radius:4px;
+    border:1px solid var(--border);color:var(--muted);white-space:nowrap}
+  #logSaveState.ok{color:#7fd88f;border-color:#2f5f3a}
+  #logSaveState.bad{color:#fff;background:#a01f2b;border-color:#d4404f;font-weight:700}
   .logtools button{background:var(--panel-2);border:1px solid var(--border);color:var(--muted);
        border-radius:6px;padding:5px 9px;cursor:pointer;font-family:var(--mono);font-size:11px}
   .logtools button:hover{color:var(--ink);border-color:var(--accent)}
@@ -328,6 +334,7 @@
         <button id="expCsv">Export CSV</button>
         <button id="expJson">Export JSON</button>
         <button id="clearLog">Clear</button>
+        <span id="logSaveState" title="Where the log is being written on disk">not saving</span>
       </div>
       <div class="logscroll">
         <table>
@@ -1002,6 +1009,75 @@ if(ROLE === 'stim'){
   /* ---- trial log ---- */
   const rows=[]; const logBody=document.getElementById('logBody'); let logSeq=0;
   let sessionStartedAt = new Date();   // reset by Clear, which is the session boundary
+
+  /* ---- the log on disk -------------------------------------------------------------------
+     Until 2026-09-18 `rows` was the ONLY copy of a session's trial log: it lived in this page's
+     memory until someone clicked Export. The stimulus PC froze mid-session and the whole log
+     went with it -- and the recording keeps WHEN each epoch happened (photodiode) and WHICH
+     unit it fell in (frame clock), but only this log knows WHAT was played with which contrast,
+     SF and TF. So every epoch is now POSTed as it starts and appended+fsynced server-side.
+
+     Three properties this has to have, each learned the hard way:
+       * it must never block or throw into the presentation path -- an experiment must not stop
+         because a disk did;
+       * it must fail LOUDLY -- a trial log that quietly stops saving is worse than none, since
+         the operator would still believe there is a copy;
+       * a retry must not lose the retroactive edit: a grey row's duration is filled in when the
+         NEXT epoch starts, so the same `n` is legitimately sent twice and the later one wins.
+         Hence the per-row `seq`: an in-flight reply only clears rows not touched since it left. */
+  const saveBadge = document.getElementById('logSaveState');
+  /* The id names the file on disk, so two sessions sharing one is two sessions in one file --
+     the n=206 failure again, in a new place. A second-resolution timestamp is NOT enough: Clear
+     followed immediately by a trial, or a second tab on the same runner, lands on the same
+     second. The random tail makes a collision the operator's problem to arrange, not the
+     clock's to avoid. */
+  const stamp = d => { const p=(v,w=2)=>String(v).padStart(w,'0');
+    return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'-'
+      +p(d.getHours())+p(d.getMinutes())+p(d.getSeconds())
+      +'-'+Math.random().toString(36).slice(2,6).padEnd(4,'0'); };
+  let sessionId = stamp(sessionStartedAt);
+  const unsaved = new Map();     // n -> {row, seq}: sent but not yet confirmed
+  let saveSeq = 0;
+  function setSave(cls, text, title){
+    if(!saveBadge) return;
+    saveBadge.className = cls; saveBadge.textContent = text;
+    saveBadge.title = title || '';
+  }
+  const toWire = r => ({ n:r.n, wallclock:r.wall, unix_ms:r.ms, type:r.type,
+    direction_deg:r.ori ?? null, orientation_deg:r.ori ?? null, duration_s:r.dur ?? null,
+    spatial_freq_cpd:r.sf ?? null, temporal_freq_hz:r.tf ?? null, contrast:r.contrast ?? null });
+  function persist(batch){
+    try{
+      const seq = ++saveSeq;
+      for(const r of batch) if(r) unsaved.set(r.n, {row:r, seq});
+      const sent = [...unsaved.values()].map(e => e.row);
+      const keys = sent.map(r => r.n);
+      window.fetch('/api/stimlog', { method:'POST', keepalive:true,
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ session: sessionId, rows: sent.map(toWire) }) })
+        .then(r => r && r.ok ? r.json() : Promise.reject(new Error('HTTP ' + (r && r.status))))
+        .then(d => {
+          for(const k of keys){ const e = unsaved.get(k); if(e && e.seq <= seq) unsaved.delete(k); }
+          if(unsaved.size === 0) setSave('ok', 'saved · ' + (d && d.file ? d.file : sessionId),
+            'every epoch is on disk in logs/ as it plays');
+        })
+        .catch(err => setSave('bad', 'NOT SAVED — ' + unsaved.size + ' epoch(s) only in this tab',
+          'the server did not take the log (' + err.message + '). Export CSV by hand before '
+          + 'closing this tab, and check that serve.py is running.'));
+    }catch(err){
+      setSave('bad', 'NOT SAVED — logging is broken', String(err && err.message || err));
+    }
+  }
+  /* Probe once at load, so a missing or unreachable server is visible BEFORE the session runs
+     rather than discovered afterwards, when there is nothing left to discover it from. */
+  try{
+    window.fetch('/api/stimlog').then(r => r && r.ok
+      ? setSave('ok', 'saving to logs/', 'each epoch is appended to disk as it plays')
+      : Promise.reject(new Error('HTTP ' + (r && r.status))))
+      .catch(() => setSave('bad', 'NOT saving to disk',
+        'the page cannot reach serve.py, so the trial log exists only in this tab. '
+        + 'Start serve.py and reload, or remember to Export CSV before closing.'));
+  }catch(_){ setSave('bad', 'NOT saving to disk', 'this page was opened without serve.py'); }
   /* Log ANY block: a grating (with its params) OR a grey/black rest (params shown as —). Grey/black
      rows mark the START of the rest block, so the log is a complete record of what was on screen and
      when — not just the gratings. */
@@ -1021,11 +1097,16 @@ if(ROLE === 'stim'){
        Leaving it blank forced the analysis to reconstruct it, so close the previous row here,
        from the clock, the moment we know it ended. */
     const prev = rows[rows.length-1];
+    let closedPrev = false;
     if(prev && (prev.dur===null || prev.dur===undefined)){
       prev.dur = Math.round((now.getTime()-prev.ms)/10)/100;
+      closedPrev = true;
     }
     const row={n:++logSeq, wall, type, ori:orientation, dur:duration, sf, tf, contrast, ms:now.getTime()};
     rows.push(row);
+    /* `prev` goes along whenever its duration was just filled in above, so the copy on disk
+       carries the closed row rather than the open one it was first written as. */
+    persist(closedPrev ? [prev, row] : [row]);
     const g=(v,f)=>{ const n=num(v); return n==null ? '—' : f(n); };  // dash for missing/non-numeric fields
     const el=document.createElement('tr');
     el.innerHTML=`<td>${row.n}</td><td>${esc(wall)}</td><td class="type-${esc(type)}">${esc(type)}</td>
@@ -1044,6 +1125,11 @@ if(ROLE === 'stim'){
   document.getElementById('clearLog').onclick=()=>{
     rows.length=0; logBody.innerHTML=''; logSeq=0;
     playedEvents.length=0; curBlock=null; sessionStartedAt=new Date();
+    /* A new session id means a new file on disk: the old session's log is left complete and
+       closed rather than being appended to, which is what made the exported CSV start at
+       n=206 the last time a boundary was only half-observed. */
+    sessionId=stamp(sessionStartedAt); unsaved.clear();
+    setSave('ok','saving to logs/','a new session file starts with the next epoch');
   };
   /* Provenance goes in the JSON, which is machine-read; the CSV stays purely tabular so it
      still opens cleanly in Excel. */

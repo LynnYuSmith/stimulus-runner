@@ -43,6 +43,32 @@ another computer (or a USB stick) and the same protocols are there.
 repeats, pinki 5-ori).
 
 
+THE TRIAL LOG IS SAVED FOR YOU
+--------------------------------------------------------------------
+Every epoch is written to disk the moment it starts, into the  logs\
+folder next to this file:
+
+    logs\stimlog_<date>-<time>-<id>.csv    <- open this in Excel
+    logs\stimlog_<date>-<time>-<id>.jsonl  <- the raw record
+
+You do NOT have to remember to export anything. If the computer
+freezes, the browser dies or the power goes, everything up to the last
+epoch is already on disk.
+
+Next to the log buttons in the app there is a small badge:
+
+    "saving to logs/"   green  — all good, it is being written
+    "NOT SAVED ..."     RED    — it is NOT being written. Export CSV
+                                 by hand before closing the tab, and
+                                 check the black window is still open.
+
+"Clear" starts a NEW log file. The old one stays complete — it is
+never added to afterwards.
+
+The Export buttons still work exactly as before; the file on disk is
+a second, independent copy, not a replacement.
+
+
 MAKE A DESKTOP SHORTCUT (optional, nicer)
 --------------------------------------------------------------------
 On the stimulation computer, after extracting this folder:

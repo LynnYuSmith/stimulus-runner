@@ -9,3 +9,4 @@ python-win/
 python-win32/
 python-win64/
 runner-log.txt
+logs/

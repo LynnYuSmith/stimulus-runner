@@ -4,7 +4,8 @@
   "private": true,
   "description": "Interactive browser-based drifting/static grating presenter for two-photon rig experiments (v1 manual).",
   "scripts": {
-    "test": "node test/protocol.test.js && node test/exports.test.js"
+    "test": "node test/protocol.test.js && node test/exports.test.js && node test/stimlog.test.js && node test/run_crash.js",
+    "test:crash": "node test/run_crash.js"
   },
   "license": "MIT"
 }
