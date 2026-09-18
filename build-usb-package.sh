@@ -30,12 +30,18 @@ if [ "${1:-}" = "--fetch" ]; then fetch_pythons; exit 0; fi
 # ensure the bundled Pythons exist (fetch if missing)
 [ -x python-win32/python.exe ] && [ -x python-win64/python.exe ] || fetch_pythons
 
+# Never ship a page the tests do not pass. This is cheap and the alternative was a USB stick
+# carrying the MARKER_FPS bug across the corridor.
+npm test >/dev/null 2>&1 || { echo "tests fail -- not building a package from this tree"; npm test; exit 1; }
+
 OUT="${1:-$HOME/Downloads/stimulus-runner-portable.zip}"
 STAGE="$(mktemp -d)/stimulus-runner"
 mkdir -p "$STAGE"
 cp index.html protocol.js serve.py START-RUNNER.bat START-RUNNER.command \
    READ-ME-FIRST.txt LICENSE README.md "$STAGE/"
 cp -R protocols "$STAGE/protocols"
+mkdir -p "$STAGE/logs"            # the trial log is written here as it plays (serve.py creates it too;
+                                  # shipping the folder makes it visible before the first epoch)
 cp -R python-win32 "$STAGE/python-win32"
 cp -R python-win64 "$STAGE/python-win64"
 find "$STAGE" -name '.DS_Store' -delete

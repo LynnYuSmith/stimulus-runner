@@ -173,6 +173,7 @@
   tr.qrow.drop-above td{border-top:2px solid var(--accent)}
   tr.qrow.drop-below td{border-bottom:2px solid var(--accent)}
   .qhandle{color:var(--faint);user-select:none} .qnum{color:var(--ink)}
+  .qmove{padding:0 5px;line-height:1.1;font-size:11px} .qmove:disabled{opacity:.25;cursor:default}
   .hint{color:var(--faint);font-size:11px}
 </style>
 </head>
@@ -1251,11 +1252,20 @@ if(ROLE === 'stim'){
       row.innerHTML = `<td class="qhandle" title="drag to reorder">⠿ <span class="qnum">${i+1}</span></td>`+
         `<td class="type-${esc(it.type)}">${esc(it.type)}</td>`+
         `<td>${oriCell}</td><td>${dur!=null ? dur+'s' : '—'}</td>`+
-        `<td><button data-i="${i}" class="qdel linkbtn" style="padding:2px 7px">✕</button></td>`;
+        `<td style="white-space:nowrap">`+
+        `<button data-i="${i}" data-d="-1" class="qmove linkbtn" title="move up" ${i===0?'disabled':''}>▲</button>`+
+        `<button data-i="${i}" data-d="1" class="qmove linkbtn" title="move down" ${i===queue.length-1?'disabled':''}>▼</button> `+
+        `<button data-i="${i}" class="qdel linkbtn" style="padding:2px 7px">✕</button></td>`;
       qBody.appendChild(row);
     });
     qBody.querySelectorAll('.qdel').forEach(b=>b.onclick=()=>{
       if(running) return; queue.splice(+b.dataset.i,1); renderQueue(); });
+    /* A way to reorder that does not depend on native drag-and-drop at all. Kept deliberately
+       next to the drag handle: on the rig (Windows, Chrome) a drop was seen to leave the whole
+       page unresponsive, and an operator mid-session needs a route that cannot do that. */
+    qBody.querySelectorAll('.qmove').forEach(b=>b.onclick=()=>{
+      if(running) return; const i=+b.dataset.i, d=+b.dataset.d;
+      moveQueueItem(i, d<0 ? i-1 : i+2); });
     attachQueueDnD();
     document.getElementById('qCount').textContent = queue.length;
     const tot = queue.reduce((s,it)=>s+(+it.duration||0), 0);          // total sequence length
@@ -1269,32 +1279,59 @@ if(ROLE === 'stim'){
     queue.splice(to, 0, item);
     renderQueue();
   }
-  function clearDropMarks(){ qBody.querySelectorAll('tr').forEach(r=>r.classList.remove('drop-above','drop-below')); }
+  /* Drag-and-drop, with one rule that is the whole point: NOTHING is re-rendered inside `drop`.
+     The first version called moveQueueItem() -> renderQueue() -> innerHTML='' right there, which
+     destroys the row being dragged while the browser's drag session is still open. Chromium on
+     Windows (the rig) then never delivers `dragend`, keeps the session, and swallows every click
+     until Esc -- the page looks hung. So `drop` only RECORDS the move; the re-render happens on
+     `dragend`, after the browser has let go, with a timer as the fallback for the case where
+     dragend never arrives at all. */
+  let marked = null, pendingMove = null, dragFallback = 0;
+  function clearDropMarks(){
+    if(marked){ marked.classList.remove('drop-above','drop-below'); marked = null; }
+  }
+  function markRow(row, after){
+    const cls = after ? 'drop-below' : 'drop-above';
+    if(marked === row && row.classList.contains(cls)) return;   // dragover fires constantly; do nothing unless it changed
+    clearDropMarks(); row.classList.add(cls); marked = row;
+  }
+  function finishDrag(){                     // the one place the drag's consequences are applied
+    clearTimeout(dragFallback); dragFallback = 0;
+    clearDropMarks();
+    const mv = pendingMove; pendingMove = null; dragFrom = null;
+    qBody.querySelectorAll('tr.dragging').forEach(r=>r.classList.remove('dragging'));
+    if(mv) moveQueueItem(mv.from, mv.to);
+  }
   function attachQueueDnD(){
     qBody.querySelectorAll('tr.qrow').forEach(row=>{
       row.addEventListener('dragstart', e=>{
         if(running){ e.preventDefault(); return; }
-        dragFrom = +row.dataset.i; e.dataTransfer.effectAllowed = 'move';
+        dragFrom = +row.dataset.i; pendingMove = null; e.dataTransfer.effectAllowed = 'move';
         try{ e.dataTransfer.setData('text/plain', String(dragFrom)); }catch(_){}
         row.classList.add('dragging');
       });
-      row.addEventListener('dragend', ()=>{ row.classList.remove('dragging'); clearDropMarks(); dragFrom = null; });
+      row.addEventListener('dragend', finishDrag);
       row.addEventListener('dragover', e=>{
         if(dragFrom===null) return;
         e.preventDefault(); e.dataTransfer.dropEffect = 'move';
-        const r = row.getBoundingClientRect(); const after = (e.clientY - r.top) > r.height/2;
-        clearDropMarks(); row.classList.add(after ? 'drop-below' : 'drop-above');
+        const r = row.getBoundingClientRect();
+        markRow(row, (e.clientY - r.top) > r.height/2);
       });
       row.addEventListener('drop', e=>{
         e.preventDefault();
         if(dragFrom===null || running){ return; }
         const onIdx = +row.dataset.i; const r = row.getBoundingClientRect();
         const after = (e.clientY - r.top) > r.height/2;
-        moveQueueItem(dragFrom, onIdx + (after ? 1 : 0));
-        dragFrom = null;
+        pendingMove = { from: dragFrom, to: onIdx + (after ? 1 : 0) };   // recorded, not applied
+        clearTimeout(dragFallback);
+        dragFallback = setTimeout(finishDrag, 150);                        // in case dragend never comes
       });
     });
   }
+  /* A drag that ends anywhere else -- outside the table, on another card, off the window --
+     must still release the state, or the next dragover would think a drag is in progress. */
+  document.addEventListener('dragend', ()=>{ if(dragFrom!==null || marked || pendingMove) finishDrag(); });
+  document.addEventListener('drop', e=>{ if(dragFrom!==null && !qBody.contains(e.target)){ e.preventDefault(); pendingMove=null; finishDrag(); } });
   function pushBlock(b){ queue.push(b); renderQueue(); }
   function addToQueue(tr){
     pushBlock({ type:tr.type, orientation:tr.orientation, sf:tr.sf, tf:tr.tf,

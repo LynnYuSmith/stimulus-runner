@@ -62,6 +62,11 @@ Next to the log buttons in the app there is a small badge:
                                  by hand before closing the tab, and
                                  check the black window is still open.
 
+REORDERING THE SEQUENCE: drag a row by its ⠿ handle, OR use the ▲ ▼
+buttons on the row — they do the same thing and never depend on the
+browser's drag support. If a drag ever leaves the page unresponsive,
+press Esc, then use the arrows.
+
 "Clear" starts a NEW log file. The old one stays complete — it is
 never added to afterwards.
 

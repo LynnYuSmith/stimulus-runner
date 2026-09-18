@@ -28,15 +28,56 @@ function makeSandbox(downloads, patch) {
     apply: () => anything(),
     set: () => true,
   });
-  const el = () => {
+  /* Elements are stubs, but a few things are real enough for the queue tests to lean on:
+     classList is backed by className; addEventListener records into __listeners so a test can
+     fire a handler; setting innerHTML to markup creates child stubs for the <button>s in it
+     (dataset, class, disabled) and to '' clears the children; querySelectorAll walks the
+     children by tag and class. Everything else stays inert. */
+  const parseButtons = (markup) => {
+    const out = [];
+    for (const m of String(markup).matchAll(/<button\b([^>]*)>/g)) {
+      const attrs = m[1]; const b = el();
+      b.tagName = "BUTTON";
+      const cls = /class="([^"]*)"/.exec(attrs); b.className = cls ? cls[1] : "";
+      for (const d of attrs.matchAll(/data-([a-z]+)="([^"]*)"/g)) b.dataset[d[1]] = d[2];
+      b.disabled = /\bdisabled\b/.test(attrs.replace(/"[^"]*"/g, ""));
+      out.push(b);
+    }
+    return out;
+  };
+  const matches = (node, sel) => {
+    // supports "tag", ".cls", "tag.cls", and comma lists
+    if (sel === "*") return true;
+    return sel.split(",").some(one => {
+      one = one.trim(); const dot = one.indexOf(".");
+      const tag = dot < 0 ? one : one.slice(0, dot); const cls = dot < 0 ? null : one.slice(dot + 1);
+      if (tag && (node.tagName || "").toLowerCase() !== tag.toLowerCase()) return false;
+      if (cls && !(node.className || "").split(/\s+/).includes(cls)) return false;
+      return true;
+    });
+  };
+  const walk = (node, sel, out) => {
+    for (const c of [...(node.children || []), ...(node.__created || [])]) {
+      if (matches(c, sel)) out.push(c);
+      walk(c, sel, out);
+    }
+    return out;
+  };
+  const el = (tag) => {
+    let className = "", html = "";
     const node = {
-      style: {}, dataset: {}, classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
-      children: [], childNodes: [], value: "", textContent: "", innerHTML: "", checked: false,
+      tagName: (tag || "div").toUpperCase(),
+      style: {}, dataset: {}, __listeners: {}, __created: [],
+      children: [], childNodes: [], value: "", textContent: "", checked: false,
       width: 800, height: 600, clientWidth: 800, clientHeight: 600,
-      appendChild(c) { this.children.push(c); return c; },
+      appendChild(c) { this.children.push(c); c.parentNode = this; return c; },
       removeChild() {}, insertBefore(c) { return c; }, remove() {},
-      addEventListener() {}, removeEventListener() {}, setAttribute() {}, removeAttribute() {},
-      getAttribute: () => null, querySelector: () => el(), querySelectorAll: () => [],
+      addEventListener(t, fn) { (this.__listeners[t] = this.__listeners[t] || []).push(fn); },
+      removeEventListener() {}, setAttribute() {}, removeAttribute() {},
+      getAttribute: () => null,
+      querySelector(sel) { return walk(this, sel, [])[0] || el(); },
+      querySelectorAll(sel) { return walk(this, sel, []); },
+      contains(other) { return walk(this, "*", []).includes(other) || other === this; },
       // logEntry scrolls the log panel into view; the export tests never called it
       closest: () => null, scrollTop: 0, scrollHeight: 0,
       getContext: () => anything(),
@@ -44,6 +85,19 @@ function makeSandbox(downloads, patch) {
       focus() {}, blur() {}, click() { if (this.onclick) this.onclick({}); },
       requestFullscreen() {}, insertAdjacentHTML() {},
     };
+    Object.defineProperty(node, "className", {
+      get: () => className, set: (v) => { className = String(v); }, enumerable: true });
+    node.classList = {
+      add(...c) { const s = new Set(className.split(/\s+/).filter(Boolean)); c.forEach(x => s.add(x)); className = [...s].join(" "); },
+      remove(...c) { className = className.split(/\s+/).filter(x => x && !c.includes(x)).join(" "); },
+      toggle(c, force) { const has = this.contains(c); if (force === undefined ? has : !force) this.remove(c); else this.add(c); },
+      contains(c) { return className.split(/\s+/).includes(c); },
+    };
+    Object.defineProperty(node, "innerHTML", {
+      get: () => html, enumerable: true,
+      set: (v) => { html = String(v); if (html === "") { node.children.length = 0; node.__created.length = 0; }
+                    else node.__created = parseButtons(html); },
+    });
     return node;
   };
   const byId = new Map();
@@ -53,7 +107,7 @@ function makeSandbox(downloads, patch) {
       return byId.get(id);
     },
     createElement(tag) {
-      const n = el();
+      const n = el(tag);
       if (tag === "a") {
         // this is the download path: capture instead of navigating
         Object.defineProperty(n, "click", { value() { downloads.push({ name: n.download, href: n.href }); } });
@@ -61,7 +115,9 @@ function makeSandbox(downloads, patch) {
       return n;
     },
     querySelector: () => el(), querySelectorAll: () => [],
-    addEventListener() {}, removeEventListener() {},
+    __listeners: {},
+    addEventListener(t, fn) { (this.__listeners[t] = this.__listeners[t] || []).push(fn); },
+    removeEventListener() {},
     body: el(), documentElement: el(), hidden: false, fullscreenElement: null,
     exitFullscreen() {},
   };
