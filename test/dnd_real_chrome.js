@@ -28,6 +28,11 @@ const getJSON = (u) => new Promise((res, rej) => http.get(u, r => {
   const chrome = spawn(CHROME, ["--headless=new", "--remote-debugging-port=" + PORT,
     "--no-first-run", "--no-default-browser-check", "--user-data-dir=/tmp/dnd_chrome_profile",
     "--window-size=1400,1000", "about:blank"], { stdio: "ignore" });
+  // Whatever way this process ends -- success, fail(), an evaluate that threw, ctrl-c -- the
+  // Chrome it started ends with it. Twelve orphaned headless Chromes were found on the
+  // machine on 2026-09-19, one per script run that had exited through fail().
+  process.on("exit", () => { try { chrome.kill(); } catch (_) {} });
+  process.on("SIGINT", () => process.exit(130));
   await sleep(1500);
   let targets;
   for (let i = 0; i < 20; i++) { try { targets = await getJSON(`http://127.0.0.1:${PORT}/json`); break; } catch { await sleep(300); } }
