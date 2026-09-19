@@ -21,7 +21,12 @@
     RGB: [1.0, 0.0, 0.0],  // RED
     CORNER: "tr",          // top-right — the stimulus generator's default
     RESERVE_RATIO: 0.0185, // marker square: side = sqrt(ratio·H·W) px, exactly the generator's
-    TYPE_PULSES: { grey: 1, still: 2, moving: 3 },  // the decoder map (pulse count -> type)
+    TYPE_PULSES: { grey: 1, still: 2, moving: 3, contrast: 4 },  // the decoder map (pulse count -> type)
+    // `contrast` = the SECOND grating of a back-to-back pair (4c4s: base, then its contrast
+    // at once, no grey between). Four pulses so the recording itself says which half is
+    // which, instead of only their order (task #40, 2026-09-19). The pipeline's decoder reads
+    // 4 as a moving grating with role=contrast; older recordings (3+3) are still paired by
+    // adjacency there, so nothing already recorded changes meaning.
   };
   MARKER.PULSE_WIDTH_S = MARKER.PULSE_W_FRAMES / MARKER.FPS;                       // ~0.059 s
   MARKER.PULSE_PERIOD_S = (MARKER.PULSE_W_FRAMES + MARKER.PULSE_GAP_FRAMES) / MARKER.FPS; // ~0.118 s

@@ -157,4 +157,22 @@ test("neither drag nor the arrows reorder while the queue is running", () => {
   assert.strictEqual(q.order().split(" ")[0], "0", "the arrow moved a block during a run");
 });
 
+test("a grating straight after a grating is the contrast half: 4 pulses, role=contrast; after grey it is 3", () => {
+  const { sandbox } = loadPage(`window.__c = {
+    show: (ori) => showGrating({ type:'moving', orientation:ori, sf:0.02, tf:1, contrast:1, duration:4, moving:true }),
+    grey: () => applyGrey(true),
+    count: () => R.st.markerCount,
+    lastRole: () => rows[rows.length-1].role,
+  };`);
+  const c = sandbox.window.__c;
+  c.grey(); c.show(135);
+  assert.strictEqual(c.count(), 3, "a grating after grey is a plain moving grating");
+  assert.strictEqual(c.lastRole(), "grating");
+  c.show(315);
+  assert.strictEqual(c.count(), 4, "a grating straight after a grating is the contrast half");
+  assert.strictEqual(c.lastRole(), "contrast");
+  c.grey(); c.show(135);
+  assert.strictEqual(c.count(), 3, "grey in between breaks the pair");
+});
+
 console.log(`\n  ${passed} queue tests passed`);

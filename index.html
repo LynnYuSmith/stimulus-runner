@@ -465,7 +465,7 @@
 
     <h3>Markers &amp; export</h3>
     <ul>
-      <li>A RED corner square pulses at each onset, pulse-<b>count</b> coded: grey = 1, static = 2, moving = 3 (a photodiode reads it).</li>
+      <li>A RED corner square pulses at each onset, pulse-<b>count</b> coded: grey = 1, static = 2, moving = 3, and <b>4</b> for a grating shown straight after another grating with no grey between — the contrast half of a 4c4s pair (a photodiode reads it).</li>
       <li><b>Export protocol</b> writes the played sequence (JSON) to overlay onto the recording; the <b>trial log</b> exports as CSV / JSON.</li>
     </ul>
   </div>
@@ -695,7 +695,9 @@ function createRenderer(canvas){
     st.contrast = tr.contrast; st.moving = tr.moving; st.phase = 0;
     st.meanLum = st.greyLevel;                          // grating oscillates around grey
     st.zone = tr.zone || null;                          // per-trial aperture (absent → full field)
-    st.markerCount = tr.moving ? TYPE_PULSES.moving : TYPE_PULSES.still;
+    // the contrast half of a back-to-back pair gets its own count (4), so the photodiode
+    // record says which half is which; a grating after grey is 3, a still one 2
+    st.markerCount = tr.contrastHalf ? TYPE_PULSES.contrast : tr.moving ? TYPE_PULSES.moving : TYPE_PULSES.still;
     st.markerOnset = performance.now();
   }
   function flash(tr){                       // blitz: a flat-field luminance flash (optionally in a zone)
@@ -826,6 +828,10 @@ if(ROLE === 'stim'){
   }
   function showGrating(tr){                       // display a grating (no auto-return timer)
     tr.trialId = tr.trialId || ++trialSeq;
+    /* A grating that follows a grating with nothing between is the contrast half of a pair
+       (4c4s). Decided here, from what was actually on screen -- not from the queue's plan --
+       so a manual second grating counts too, and a pause or a grey in between breaks it. */
+    tr.contrastHalf = !!(curBlock && (curBlock.type === 'moving' || curBlock.type === 'still'));
     closeBlock(); openBlock(tr.type, tr);
     R.present(tr);                               // mirror
     sendStim({cmd:'present', trial:tr});
@@ -1061,7 +1067,7 @@ if(ROLE === 'stim'){
   }
   const toWire = r => ({ n:r.n, wallclock:r.wall, unix_ms:r.ms, type:r.type,
     direction_deg:r.ori ?? null, orientation_deg:r.ori ?? null, duration_s:r.dur ?? null,
-    spatial_freq_cpd:r.sf ?? null, temporal_freq_hz:r.tf ?? null, contrast:r.contrast ?? null });
+    spatial_freq_cpd:r.sf ?? null, temporal_freq_hz:r.tf ?? null, contrast:r.contrast ?? null, role:r.role||'' });
   function persist(batch){
     try{
       const seq = ++saveSeq;
@@ -1100,7 +1106,7 @@ if(ROLE === 'stim'){
   // escape any string that flows into innerHTML — protocol files come from disk / git and are untrusted
   const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const num=v=>{ const n=+v; return Number.isFinite(n)?n:null; };   // coerce; non-numbers -> dash
-  function logEntry({type, orientation=null, duration=null, sf=null, tf=null, contrast=null}){
+  function logEntry({type, orientation=null, duration=null, sf=null, tf=null, contrast=null, role=null}){
     const now=new Date();
     /* ISO 8601 in LOCAL time, with the date. The old form was time-of-day only, so a session
        running past midnight produced timestamps that sort wrongly and cannot be placed on a
@@ -1118,7 +1124,7 @@ if(ROLE === 'stim'){
       prev.dur = Math.round((now.getTime()-prev.ms)/10)/100;
       closedPrev = true;
     }
-    const row={n:++logSeq, wall, type, ori:orientation, dur:duration, sf, tf, contrast, ms:now.getTime()};
+    const row={n:++logSeq, wall, type, ori:orientation, dur:duration, sf, tf, contrast, ms:now.getTime(), role: role||''};
     rows.push(row);
     /* `prev` goes along whenever its duration was just filled in above, so the copy on disk
        carries the closed row rather than the open one it was first written as. */
@@ -1132,7 +1138,8 @@ if(ROLE === 'stim'){
     const sc = logBody.closest('.logscroll'); if(sc) sc.scrollTop = sc.scrollHeight;   // keep newest in view
   }
   function logTrial(tr){ logEntry({type:tr.type, orientation:tr.orientation, duration:tr.duration,
-                                   sf:tr.sf, tf:tr.tf, contrast:tr.contrast}); }
+                                   sf:tr.sf, tf:tr.tf, contrast:tr.contrast,
+                                   role: tr.contrastHalf ? 'contrast' : (tr.type==='moving'||tr.type==='still') ? 'grating' : null}); }
   /* Clear = a session boundary, so it must clear everything that carries across one.
      Before, it emptied `rows` only: `logSeq` kept counting and `playedEvents` kept growing, so
      the next session's CSV started mid-count (abf001 260902 began at n=206) and the exported
@@ -1166,8 +1173,8 @@ if(ROLE === 'stim'){
        fold 225 into 45 by accident. orientation_deg is kept alongside it, unchanged, so
        anything already reading that name keeps working. */
     const head='n,wallclock,unix_ms,type,direction_deg,orientation_deg,duration_s,'
-      +'spatial_freq_cpd,temporal_freq_hz,contrast';
-    const body=rows.map(r=>[r.n,r.wall,r.ms,r.type,r.ori,r.ori,r.dur,r.sf,r.tf,r.contrast]
+      +'spatial_freq_cpd,temporal_freq_hz,contrast,role';
+    const body=rows.map(r=>[r.n,r.wall,r.ms,r.type,r.ori,r.ori,r.dur,r.sf,r.tf,r.contrast,r.role||'']
       .join(',')).join('\n');
     download('stimlog.csv', head+'\n'+body, 'text/csv');
   });

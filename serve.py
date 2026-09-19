@@ -127,7 +127,7 @@ _SESSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 #: The browser's Export CSV header, and the names lib/stimulus/runner_log.load_stimlog reads.
 #: Kept identical on purpose: the recovered file must be usable wherever the exported one is.
 STIMLOG_COLUMNS = ("n", "wallclock", "unix_ms", "type", "direction_deg", "orientation_deg",
-                   "duration_s", "spatial_freq_cpd", "temporal_freq_hz", "contrast")
+                   "duration_s", "spatial_freq_cpd", "temporal_freq_hz", "contrast", "role")
 
 
 def log_paths(session: str):
