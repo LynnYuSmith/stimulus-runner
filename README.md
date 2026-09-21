@@ -20,6 +20,8 @@ A closed-loop camera trigger ("fire when the mouse has been calm ≥ 2 s") and a
 **trigger-out** (e.g. a TTL into LabChart) are planned later phases that build on that same
 one small server.
 
+![the operator cockpit: quick gratings, the custom-grating form, and a live mirror of what the mouse sees](https://raw.githubusercontent.com/LynnYuSmith/stimulus-runner/main/docs/cockpit.png)
+
 ## Two screens
 
 - **Stimulus screen** — a full-screen WebGL canvas showing only the grating (and the corner
@@ -27,6 +29,13 @@ one small server.
   goes full-screen. No second monitor? Use **“Fullscreen here”**.
 - **Operator control screen** — the cockpit: quick-grating buttons, a custom-grating form,
   the queue, the trial log, and a live mirror of what the mouse sees.
+
+| the queue and the trial log | what the mouse sees |
+|---|---|
+| ![a queued sweep and the trial log writing to disk](https://raw.githubusercontent.com/LynnYuSmith/stimulus-runner/main/docs/queue_and_log.png) | ![a 45° binary grating with the corner marker](https://raw.githubusercontent.com/LynnYuSmith/stimulus-runner/main/docs/stimulus_screen.png) |
+
+The screenshots are taken by `test/shots_real_chrome.js` in a real Chrome, which fails on any
+console error — a picture of a broken page is worse than no picture.
 
 The two are one page in two roles (`#stim` vs control), talking over `postMessage` — no
 install. The only backend is the tiny `serve.py`, and only the saved-protocol list uses it;
