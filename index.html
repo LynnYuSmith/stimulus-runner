@@ -193,6 +193,7 @@
   tr.qrow.drop-below td{border-bottom:2px solid var(--accent)}
   .qhandle{color:var(--faint);user-select:none} .qnum{color:var(--ink)}
   .qmove{padding:0 5px;line-height:1.1;font-size:11px} .qmove:disabled{opacity:.25;cursor:default}
+  .linkbtn:disabled,.qdel:disabled{opacity:.3;cursor:not-allowed}
   .hint{color:var(--faint);font-size:11px}
 </style>
 </head>
@@ -1426,6 +1427,7 @@ if(ROLE === 'stim'){
         `<button data-i="${i}" class="qdel linkbtn" style="padding:2px 7px">✕</button></td>`;
       qBody.appendChild(row);
     });
+    updateQueueEditable();                    // a re-render must not undo the read-only state
     qBody.querySelectorAll('.qdel').forEach(b=>b.onclick=()=>{
       if(running) return; queue.splice(+b.dataset.i,1); renderQueue(); });
     /* A way to reorder that does not depend on native drag-and-drop at all. Kept deliberately
@@ -1527,11 +1529,32 @@ if(ROLE === 'stim'){
     blockEndAt = performance.now() + ms;
     advanceTimer = setTimeout(presentNext, ms);
   }
+  /* While a run is going the queue is read-only -- Clear, the row deletes and the reorder
+     arrows all bail out on `running`. They used to bail out SILENTLY, so an operator pressing
+     Clear mid-run got no response at all, which reads as a frozen program rather than as a
+     button that is not available right now. Disabling them says which it is. */
+  function updateQueueEditable(){
+    const c = document.getElementById('qClear');
+    c.disabled = running;
+    c.title = running ? 'stop the run first \u2014 the queue cannot be edited while it plays' : '';
+    /* Both directions. Disabling on start and never re-enabling would leave the queue
+       permanently uneditable after the first run, since the rows are only rebuilt when the
+       queue itself changes -- and a queue you cannot edit is the same complaint as a queue
+       that ignores you. The arrows go back to their own first/last rule, not simply to on. */
+    const n = qBody.querySelectorAll('.qrow').length;
+    qBody.querySelectorAll('.qdel').forEach(b=>{ b.disabled = running; });
+    qBody.querySelectorAll('.qmove').forEach(b=>{
+      const i = +b.dataset.i, d = +b.dataset.d;
+      b.disabled = running || (d < 0 ? i === 0 : i === n - 1);
+    });
+    qBody.querySelectorAll('.qrow').forEach(r=>{ r.draggable = !running; });
+  }
   function updateRunUI(){                           // reflect run/pause state on both buttons
     const hint = '<span class="hint" style="color:#0a3">(Space)</span>';
     document.getElementById('present').innerHTML =
       (running && paused) ? '▶ Resume  '+hint : running ? '⏸ Pause  '+hint : '▶ Present  '+hint;
     document.getElementById('qRun').textContent = running ? '■ Stop queue' : '▶ Run queue';
+    updateQueueEditable();
   }
   function pauseQueue(){
     if(!running || paused) return;

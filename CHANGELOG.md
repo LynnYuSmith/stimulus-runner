@@ -30,6 +30,16 @@ plaid counts as a moving or still grating — so nothing already recorded change
 arranged for the night comes back arranged after a reload or a crash. The trial log keeps its
 window: folding had let the table grow straight out of the card.
 
+**The queue says it is read-only while it plays.** Clear, the row deletes and the reorder
+arrows have always refused to act during a run; they refused silently, so pressing Clear
+mid-run looked exactly like a frozen program. They are now disabled, with a tooltip saying to
+stop the run first, and they come back the moment it stops.
+
+**Checked under load:** eight rounds of queueing a plaid sweep, running it, switching the
+motion mode mid-run and clearing the queue held 62–63 fps with a 1–2 MB heap and no
+exceptions. A mid-run mode switch changes the form, not the blocks already queued — the queue
+is literal, and what is playing keeps the settings it was queued with.
+
 **Known, not a bug:** the default binary waveform makes a three-level chequer rather than the
 smooth interference pattern a plaid usually means. Switch the waveform to sinusoid for plaids.
 
