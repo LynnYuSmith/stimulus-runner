@@ -75,6 +75,14 @@ function makeSandbox(downloads, patch) {
       appendChild(c) { this.children.push(c); c.parentNode = this; return c; },
       removeChild() {}, insertBefore(c) { return c; }, remove() {},
       addEventListener(t, fn) { (this.__listeners[t] = this.__listeners[t] || []).push(fn); },
+      /* The page dispatches `new Event('input')` to make a programmatic value change look like
+         a typed one -- that is how the form's displays refresh and how the mirrored sliders in
+         the Sequence card stay one value. Without it here the stub throws at load. */
+      dispatchEvent(ev) {
+        const t = (ev && ev.type) || String(ev);
+        for (const fn of this.__listeners[t] || []) fn.call(this, ev);
+        return true;
+      },
       removeEventListener() {}, setAttribute() {}, removeAttribute() {},
       getAttribute: () => null,
       querySelector(sel) { return walk(this, sel, [])[0] || el(); },
@@ -151,6 +159,9 @@ function makeSandbox(downloads, patch) {
     innerWidth: 1200, innerHeight: 800, open: () => null, BroadcastChannel: class {
       constructor() {} postMessage() {} close() {} addEventListener() {}
     },
+    // `new Event('input')` is how the page tells a control it changed; a stub without it
+    // throws the moment the page's script runs.
+    Event: class { constructor(type, init) { this.type = type; Object.assign(this, init || {}); } },
     WebGLRenderingContext: function () {}, Math, JSON, Date, Object, Array, String, Number,
     Boolean, Error, TypeError, Promise, Map, Set, isNaN, parseFloat, parseInt, encodeURIComponent,
   };

@@ -354,6 +354,12 @@
       <div class="body">
         <label class="f" style="margin-bottom:8px">Rest / grey-gap duration (s) <span class="val" id="gbVal">4.0</span>
           <input type="range" id="greyBetween" min="0" max="60" step="0.5" value="4"></label>
+        <div class="grid2" style="margin-bottom:8px">
+          <label class="f">Grating duration (s) <span class="val" id="seqDurVal">4.0</span>
+            <input type="range" id="seqDur" min="0.5" max="60" step="0.5" value="4"></label>
+          <label class="f">Grating direction <span class="val" id="seqOriVal">0°</span>
+            <input type="range" id="seqOri" min="0" max="345" step="15" value="0"></label>
+        </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
           <button class="linkbtn" id="qAdd">+ grating</button>
           <button class="linkbtn" id="qPlaid">+ plaid</button>
@@ -1029,6 +1035,24 @@ if(ROLE === 'stim'){
   bind('ori','oriVal',x=>x+'°'); bind('sf','sfVal',x=>ean(x)); bind('tf','tfVal',x=>(+x).toFixed(1));
   bind('ct','ctVal',x=>(+x).toFixed(2));
   bind('dir2','dir2Val',x=>x+'\u00b0'); bind('tf2','tf2Val',x=>(+x).toFixed(1));
+  bind('seqDur','seqDurVal',x=>(+x).toFixed(1)); bind('seqOri','seqOriVal',x=>x+'\u00b0');
+  /* The Sequence card repeats the two controls reached for most while building a queue. They
+     are MIRRORS of the fields in Custom grating, not a second pair of settings: one value each,
+     shown twice. Two independent copies of the same quantity drift apart, and the one you were
+     not looking at is the one that ends up in the recording. Only the original is saved with
+     the session and read by the form; the mirror carries no state of its own. */
+  function mirror(masterId, copyId){
+    const a = document.getElementById(masterId), b = document.getElementById(copyId);
+    const push = (from, to) => {
+      if(to.value === from.value) return;        // guard: each one echoes the other
+      to.value = from.value;
+      to.dispatchEvent(new Event('input'));
+    };
+    a.addEventListener('input', ()=>push(a, b));
+    b.addEventListener('input', ()=>push(b, a));
+    b.value = a.value; b.dispatchEvent(new Event('input'));
+  }
+  mirror('dur','seqDur'); mirror('ori','seqOri');
   document.querySelectorAll('#plaidSeg button, #plaidOnSeg button').forEach(b=>b.onclick=()=>{
     const seg = b.parentElement;
     seg.querySelectorAll('button').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); });

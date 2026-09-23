@@ -51,6 +51,12 @@ with a button to copy it: `135` a grating, `0p90` a plaid, `135c315` a contrast 
 grating's code also goes into the exported protocol as `stim_code`, so the comment typed at the
 microscope and the record the runner keeps cannot drift apart.
 
+**The Sequence card carries the grating's duration and direction too**, beside the rest/grey
+slider, so building a queue does not mean scrolling back up. They are mirrors of the fields in
+Custom grating, not a second pair of settings — one value each, shown twice, because two copies
+of the same quantity drift and the one you were not looking at is the one that reaches the
+recording.
+
 **The queue says it is read-only while it plays.** Clear, the row deletes and the reorder
 arrows have always refused to act during a run; they refused silently, so pressing Clear
 mid-run looked exactly like a frozen program. They are now disabled, with a tooltip saying to
