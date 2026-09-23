@@ -23,7 +23,7 @@ Okun, Carandini & Harris 2015 (*Neuron* 87:644), whose design this borrows.
 `plaid_temporal_freq_hz` columns in the trial log and its recovered CSV; the same plus
 `plaid_angle_deg`, `component_directions_deg`, `component_temporal_freqs_hz`,
 `plaid_contrast_per` and `temporal_freq_role` in the exported protocol; the block label reads
-*Moving plaid 0°+90°* and never as a plain 0° grating. The photodiode marker is unchanged — a
+*Moving plaid 0p90°* and never as a plain 0° grating. The photodiode marker is unchanged — a
 plaid counts as a moving or still grating — so nothing already recorded changes meaning.
 
 **Every settings card folds**, and which ones are open is saved with the session, so a cockpit
@@ -33,9 +33,9 @@ window: folding had let the table grow straight out of the card.
 **Contrast pairs.** **+ contrast** queues a 4c4s pair — the same grating one way, then straight
 back the other with no grey between — and **+ contrast sweep** queues four of them covering all
 eight directions (135c315, 180c0, 225c45, 270c90), grey between the pairs and never inside one.
-A plaid turns both of its gratings, so only the drift reverses. The contrast half is marked
-where it always was, at presentation time, so it carries 4 pulses and `role=contrast` without
-anything new being trusted.
+A plaid turns both of its gratings, so only the drift reverses. The second half is recognised
+where it always was, at presentation time from what was on screen, so it carries its 4 marker
+pulses without anything new being trusted.
 
 **The record now says what a block WAS, separately from what it belongs to.** The trial log's
 `role` column is replaced by four: `stim_kind` (`grating`, or `plaid` when two gratings are
