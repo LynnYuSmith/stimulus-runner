@@ -64,14 +64,50 @@
     return n <= 0 ? 0 : (n - 1) * MARKER.PULSE_PERIOD_S + MARKER.PULSE_WIDTH_S;
   }
 
-  /** events_labeled-style label for a block. */
-  function blockLabel(type, orientationDeg) {
+  /** events_labeled-style label for a block. A plaid names BOTH its components, because the
+   *  pair is the stimulus — "Moving plaid 0/90°" is not a 0° grating and must never read as one. */
+  function blockLabel(type, orientationDeg, plaidAngleDeg) {
     if (type === "grey") return "Grey";
     if (type === "black") return "Black";
     if (type === "blitz") return "Blitz";
     if (type === "bar") return orientationDeg == null ? "Bar sweep" : `Bar ${Number(orientationDeg)}°`;
     const kind = type === "moving" ? "Moving" : "Static";
-    return `${kind} ${Number(orientationDeg)}°`;
+    const a = Number(orientationDeg), pa = Number(plaidAngleDeg) || 0;
+    if (pa > 0) return `${kind} plaid ${a}/${(a + pa) % 360}°`;
+    return `${kind} ${a}°`;
+  }
+
+  /**
+   * Component orientations of a plaid, in degrees: the set one is given plus the plaid angle.
+   * Returns a single orientation when the angle is 0 — that is not a plaid, it is a grating,
+   * and the two must not be conflated anywhere downstream.
+   */
+  function plaidComponents(orientationDeg, plaidAngleDeg) {
+    const a = Number(orientationDeg), pa = Number(plaidAngleDeg) || 0;
+    return pa > 0 ? [a, (a + pa) % 360] : [a];
+  }
+
+  /**
+   * Luminance at frame pixel (fx, fy) — MIRRORS the WebGL shader, so what the screen shows is
+   * node-testable. A plaid is the SUM of its components, each a grating of the same spatial and
+   * temporal frequency: `L = mean · (1 + contrast · norm · Σ component)`, clamped to the
+   * displayable range. `norm` is 1 when the contrast is per component and 0.5 when it is per
+   * plaid. The clamp is the honest part: two components at contrast 0.5 already reach the ends
+   * of the range, and anything above that is flattened by the screen, not by us.
+   * Keep this in sync with the shader in index.html.
+   */
+  function plaidLuminance(fx, fy, o) {
+    o = o || {};
+    const comps = plaidComponents(o.orientationDeg, o.plaidAngleDeg);
+    const square = o.waveform === "square";
+    let g = 0;
+    for (const th of comps) {
+      const v = Math.sin(gratingPhaseArg(fx, fy, th, o.sf, o.phase));
+      g += square ? (v > 0 ? 1 : -1) : v;
+    }
+    const norm = (comps.length > 1 && o.plaidNorm) ? 0.5 : 1;
+    const mean = o.meanLum == null ? STIM.GREY_LEVEL : Number(o.meanLum);
+    return Math.min(1, Math.max(0, mean * (1 + Number(o.contrast) * norm * g)));
   }
 
   const isGrating = (type) => type === "moving" || type === "still";
@@ -126,7 +162,7 @@
       const item = {
         index: i,
         type: b.type,
-        label: blockLabel(b.type, b.orientation),
+        label: blockLabel(b.type, b.orientation, b.plaidAngle),
         orientation_deg: grating ? Number(b.orientation) : null,
         start_time_s: round3(t),
         end_time_s: round3(t + dur),
@@ -137,6 +173,14 @@
         item.spatial_freq_cpp = numOrNull(b.sf);
         item.temporal_freq = numOrNull(b.tf);
         item.contrast = numOrNull(b.contrast);
+        /* A plaid carries its second component explicitly. `orientation_deg` stays the FIRST
+           component so a consumer that knows nothing of plaids still reads a real orientation
+           rather than a meaningless average — but `plaid_angle_deg` being non-null is the
+           statement that this block was not a single grating. */
+        item.plaid_angle_deg = (Number(b.plaidAngle) || 0) || null;
+        item.component_orientations_deg = plaidComponents(b.orientation, b.plaidAngle);
+        item.plaid_contrast_per = item.plaid_angle_deg
+          ? (b.plaidNorm ? "plaid" : "component") : null;
         oris.add(Number(b.orientation));
         if (stimDur == null) stimDur = dur;
       } else if (b.type === "grey" && greyDur == null) {
@@ -191,6 +235,7 @@
   const API = {
     MARKER, STIM, pulsesFor, markerSidePx, markerTrainDuration, blockLabel,
     queueTimeline, buildProtocol, cyclesPerPixel, gratingPhaseArg,
+    plaidComponents, plaidLuminance,
   };
 
   if (typeof module !== "undefined" && module.exports) module.exports = API;

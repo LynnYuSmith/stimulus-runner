@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.2 — 2026-09-23
+
+**Plaids.** A plaid angle adds a second grating that many degrees from the first and shows
+their **sum**, sharing spatial frequency, temporal frequency and phase, so a moving plaid
+drifts coherently. **Plaid sum** says what the contrast slider means — per component (each
+grating at that contrast, the sum spanning twice it) or per plaid (the pair inside it, each
+grating at half). An angle of 0 is a single grating and is treated as one everywhere.
+
+**+ plaid trio** queues three plaids of one angle with their component pairs 30° apart, after
+Lin, Okun, Carandini & Harris 2015 (*Neuron* 87:644): the plaid angle under test stays fixed
+while the pair rotates, so repetition does not adapt the answer.
+
+**The record says which blocks were plaids.** A new `plaid_angle_deg` column in the trial log
+and its recovered CSV; `plaid_angle_deg`, `component_orientations_deg` and
+`plaid_contrast_per` in the exported protocol; the block label reads *Moving plaid 0/90°* and
+never as a plain 0° grating. The photodiode marker is unchanged — a plaid counts as a moving
+or still grating — so nothing already recorded changes meaning.
+
+**Known, not a bug:** the default binary waveform makes a three-level chequer rather than the
+smooth interference pattern a plaid usually means. Switch the waveform to sinusoid for plaids.
+
 ## 1.1 — 2026-09-21
 
 The session survives the rig PC. Everything here came from one thing: on 2026-09-18 the

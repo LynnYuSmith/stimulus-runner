@@ -189,7 +189,7 @@
   <!-- ============ OPERATOR PANEL (control role only) ============ -->
   <div id="panel">
     <header>
-      <h1>Grating Stimulator <span class="ver">v1.1 · <a href="#" id="manualLink" title="how to use this">manual</a></span></h1>
+      <h1>Grating Stimulator <span class="ver">v1.2 · <a href="#" id="manualLink" title="how to use this">manual</a></span></h1>
     </header>
 
     <div id="resume" role="status">
@@ -256,6 +256,13 @@
           <input type="range" id="tf" min="0" max="8" step="0.5" value="1"></label>
         <label class="f">Contrast <span class="val" id="ctVal">1.00</span>
           <input type="range" id="ct" min="0" max="1" step="0.05" value="1"></label>
+        <label class="f">Plaid angle <span class="val" id="plaidVal">off</span>
+          <input type="range" id="plaid" min="0" max="165" step="15" value="0"></label>
+        <label class="f">Plaid sum
+          <div class="seg" id="plaidSeg">
+            <button data-pn="components" class="sel">per component</button>
+            <button data-pn="plaid">per plaid</button>
+          </div></label>
         <label class="f">Duration (s)
           <input type="number" id="dur" min="0.5" max="60" step="0.5" value="4"></label>
       </div>
@@ -318,6 +325,7 @@
         <input type="range" id="greyBetween" min="0" max="60" step="0.5" value="4"></label>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
         <button class="linkbtn" id="qAdd">+ grating</button>
+        <button class="linkbtn" id="qPlaidTrio">+ plaid trio</button>
         <button class="linkbtn" id="qGrey">+ grey</button>
         <button class="linkbtn" id="qBlack">+ black</button>
         <button class="linkbtn" id="qSweep">+ 0–315 sweep</button>
@@ -355,7 +363,7 @@
       <div class="logscroll">
         <table>
           <thead><tr><th>#</th><th>wall-clock</th><th>type</th><th>ori</th><th>dur</th>
-            <th>SF</th><th>TF</th><th>C</th></tr></thead>
+            <th>SF</th><th>TF</th><th>C</th><th>plaid</th></tr></thead>
           <tbody id="logBody"></tbody>
         </table>
       </div>
@@ -439,6 +447,20 @@
     <ul>
       <li><b>Quick gratings</b> present at a preset orientation but honour the <b>moving / still</b> toggle.</li>
       <li><b>Custom grating</b>: orientation, motion, waveform, spatial/temporal frequency, contrast, duration.</li>
+      <li><b>Plaid angle</b> adds a <b>second grating on top of the first</b>, that many degrees away, and shows
+        their <b>sum</b> — <i>off</i> is a plain single grating. <b>Plaid sum</b> says what the contrast slider
+        means: <b>per component</b> gives each grating that contrast (so the sum reaches twice it, and above
+        0.5 the peaks flatten against the screen's range), <b>per plaid</b> keeps the pair within the contrast
+        set and gives each grating half. <b>+ plaid trio</b> queues three plaids of the same angle with their
+        component pairs 30° apart, which is how they are presented in Lin, Okun, Carandini &amp; Harris (2015)
+        — rotating the pair without changing the angle, so repetition does not adapt the answer.
+        <b>Set the waveform to sinusoid</b> for a plaid: our default binary wave is there to match the baked
+        stimulus videos, and summing two binary waves gives a three-level chequer rather than the smooth
+        interference pattern a plaid is normally taken to mean. Binary still works and is still recorded
+        faithfully — it is simply a different stimulus from the one the literature calls a plaid.</li>
+      <li>The marker still counts <b>3 for moving / 2 for still</b>: a plaid is a grating as far as the
+        photodiode is concerned. Which block was a plaid is in the log (<code>plaid_angle_deg</code>) and in
+        the exported protocol, as the orientation always was.</li>
       <li><b>Click any number</b> next to a slider to type an exact value.</li>
     </ul>
 
@@ -523,6 +545,9 @@ function createRenderer(canvas){
     uniform vec2  uFrame;      // virtual frame (W,H) px
     uniform float uSF;         // cycles per frame-px
     uniform float uTheta;      // orientation, radians
+    uniform float uTheta2;     // the plaid's second component, radians
+    uniform float uComp2;      // 1 = add the second component (a plaid), 0 = one grating
+    uniform float uNorm;       // amplitude the sum is scaled by: 1 = per component, 0.5 = per plaid
     uniform float uPhase;      // radians
     uniform float uContrast;   // 0..1 (0 = flat field at uMeanLum)
     uniform float uMeanLum;    // 0..1 (grey level, or 0 for black)
@@ -541,6 +566,10 @@ function createRenderer(canvas){
     uniform float uPhiCos;     // sweep direction cos
     uniform float uPhiSin;     // sweep direction sin
     uniform float uBarLum;     // bar luminance (0..1)
+    float component(float d){
+      float g = sin(6.2831853*uSF*d + uPhase);
+      return (uWaveform > 0.5) ? ((g > 0.0) ? 1.0 : -1.0) : g;   // binary square wave = our videos
+    }
     void main(){
       vec2 p = gl_FragCoord.xy;                 // origin bottom-left
       if(p.x < uOutPos.x || p.x >= uOutPos.x+uOutSize.x ||
@@ -573,10 +602,14 @@ function createRenderer(canvas){
       // so the fy term is negated — otherwise oblique orientations (45°/135°) come out
       // MIRRORED (the runner's "45°" would be the generator's "135°"). Verified frame-for-
       // frame against the pulse2percept generator at 0/45/90/135°.
-      float d = fx*cos(uTheta) - fy*sin(uTheta);
-      float g = sin(6.2831853*uSF*d + uPhase);
-      if(uWaveform > 0.5) g = (g > 0.0) ? 1.0 : -1.0;   // binary square wave (threshold at mid, = our videos)
-      float L = clamp(uMeanLum*(1.0 + uContrast*g), 0.0, 1.0);
+      // A PLAID is the sum of two such components, so the one grating is written as a
+      // component and the second is added when asked. Summing is the whole definition: the
+      // two are never composited or masked, they add, and the clamp at the end is the screen
+      // running out of range — which is why 50 % is the highest component contrast that a
+      // plaid can carry without the peaks flattening.
+      float g = component(fx*cos(uTheta)  - fy*sin(uTheta));
+      if(uComp2 > 0.5) g += component(fx*cos(uTheta2) - fy*sin(uTheta2));
+      float L = clamp(uMeanLum*(1.0 + uContrast*uNorm*g), 0.0, 1.0);
       gl_FragColor = vec4(L, L, L, 1.0);
     }`;
   function sh(type,src){ const s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s);
@@ -592,6 +625,7 @@ function createRenderer(canvas){
   const U = n => gl.getUniformLocation(prog,n);
   const u = {res:U('uRes'),outPos:U('uOutPos'),outSize:U('uOutSize'),frame:U('uFrame'),
              sf:U('uSF'),theta:U('uTheta'),phase:U('uPhase'),ct:U('uContrast'),lum:U('uMeanLum'),
+             theta2:U('uTheta2'),comp2:U('uComp2'),norm:U('uNorm'),
              pix:U('uPixelate'),wave:U('uWaveform'),mk:U('uMarker'),mkrgb:U('uMarkerRGB'),mkside:U('uMarkerSide'),corner:U('uCorner'),
              apPos:U('uApPos'),apSize:U('uApSize'),
              restLum:U('uRestLum'),mode:U('uMode'),barCenter:U('uBarCenter'),barHalf:U('uBarHalf'),
@@ -599,6 +633,7 @@ function createRenderer(canvas){
 
   const st = {
     contrast:0, moving:false, theta:0, sf:_S.SPATIAL_FREQ_CPP, tf:1, phase:0,
+    plaidAngle:0, plaidNorm:false,      // 0 = one grating; else the angle to the second component
     greyLevel:_S.GREY_LEVEL, meanLum:_S.GREY_LEVEL,      // current background mean (grey or 0=black)
     frameW:_S.FRAME_W, frameH:_S.FRAME_H, pixelate:false, waveform:'square',   // binary = our videos
     ratio:_M.RESERVE_RATIO, corner:_M.CORNER,
@@ -671,6 +706,9 @@ function createRenderer(canvas){
     gl.uniform1f(u.phase, st.phase);
     gl.uniform1f(u.ct, st.contrast);
     gl.uniform1f(u.lum, st.meanLum);
+    gl.uniform1f(u.theta2, (st.theta + st.plaidAngle)*Math.PI/180);
+    gl.uniform1f(u.comp2, st.plaidAngle > 0 ? 1 : 0);
+    gl.uniform1f(u.norm, (st.plaidAngle > 0 && st.plaidNorm) ? 0.5 : 1);
     gl.uniform1f(u.pix, st.pixelate?1:0);
     gl.uniform1f(u.wave, st.waveform==='square'?1:0);
     gl.uniform1i(u.mk, marker);
@@ -693,6 +731,7 @@ function createRenderer(canvas){
     st.mode = 'grating';
     st.theta = tr.orientation; if(tr.sf!=null) st.sf = tr.sf; st.tf = tr.tf;
     st.contrast = tr.contrast; st.moving = tr.moving; st.phase = 0;
+    st.plaidAngle = +tr.plaidAngle || 0; st.plaidNorm = !!tr.plaidNorm;
     st.meanLum = st.greyLevel;                          // grating oscillates around grey
     st.zone = tr.zone || null;                          // per-trial aperture (absent → full field)
     // the contrast half of a back-to-back pair gets its own count (4), so the photodiode
@@ -701,13 +740,13 @@ function createRenderer(canvas){
     st.markerOnset = performance.now();
   }
   function flash(tr){                       // blitz: a flat-field luminance flash (optionally in a zone)
-    st.mode = 'grating'; st.contrast = 0; st.moving = false;
+    st.mode = 'grating'; st.contrast = 0; st.moving = false; st.plaidAngle = 0;
     st.meanLum = (tr && tr.flashLum!=null) ? tr.flashLum : 1.0;   // default full white flash
     st.zone = (tr && tr.zone) || null;
     st.markerCount = 1; st.markerOnset = performance.now();       // single onset pulse
   }
   function bar(tr){                          // bar sweep: a solid bar drifting across the field
-    st.mode = 'bar'; st.contrast = 0; st.moving = false;
+    st.mode = 'bar'; st.contrast = 0; st.moving = false; st.plaidAngle = 0;
     st.barPhi  = (tr && tr.direction!=null) ? tr.direction : 0;   // sweep direction, degrees
     st.barHalf = ((tr && tr.width!=null) ? tr.width : 0.12) / 2;  // width as a fraction of the field
     st.barLum  = (tr && tr.barLum!=null) ? tr.barLum : 1.0;
@@ -807,6 +846,8 @@ if(ROLE === 'stim'){
       tf:+document.getElementById('tf').value,
       contrast:+document.getElementById('ct').value,
       duration:+document.getElementById('dur').value,
+      plaidAngle:+document.getElementById('plaid').value,          // 0 = a single grating
+      plaidNorm: document.querySelector('#plaidSeg .sel').dataset.pn==='plaid',
       moving: document.querySelector('#moveSeg .sel').dataset.mv==='moving',
       zone: currentZone(),                         // visible field segment (null = full field)
     };
@@ -900,6 +941,9 @@ if(ROLE === 'stim'){
   };
   bind('ori','oriVal',x=>x+'°'); bind('sf','sfVal',x=>ean(x)); bind('tf','tfVal',x=>(+x).toFixed(1));
   bind('ct','ctVal',x=>(+x).toFixed(2));
+  bind('plaid','plaidVal',x=>+x>0 ? x+'\u00b0' : 'off');   // 0 is not a 0\u00b0 plaid, it is no plaid
+  document.querySelectorAll('#plaidSeg button').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('#plaidSeg button').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); });
   bind('greyBetween','gbVal',x=>(+x).toFixed(1));
   function ean(x){ return (+x).toFixed(3); }
   document.querySelectorAll('#moveSeg button').forEach(b=>b.onclick=()=>{
@@ -1067,7 +1111,8 @@ if(ROLE === 'stim'){
   }
   const toWire = r => ({ n:r.n, wallclock:r.wall, unix_ms:r.ms, type:r.type,
     direction_deg:r.ori ?? null, orientation_deg:r.ori ?? null, duration_s:r.dur ?? null,
-    spatial_freq_cpd:r.sf ?? null, temporal_freq_hz:r.tf ?? null, contrast:r.contrast ?? null, role:r.role||'' });
+    spatial_freq_cpd:r.sf ?? null, temporal_freq_hz:r.tf ?? null, contrast:r.contrast ?? null, role:r.role||'',
+    plaid_angle_deg:r.plaid ?? null });
   function persist(batch){
     try{
       const seq = ++saveSeq;
@@ -1106,7 +1151,8 @@ if(ROLE === 'stim'){
   // escape any string that flows into innerHTML — protocol files come from disk / git and are untrusted
   const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const num=v=>{ const n=+v; return Number.isFinite(n)?n:null; };   // coerce; non-numbers -> dash
-  function logEntry({type, orientation=null, duration=null, sf=null, tf=null, contrast=null, role=null}){
+  function logEntry({type, orientation=null, duration=null, sf=null, tf=null, contrast=null, role=null,
+                     plaidAngle=null}){
     const now=new Date();
     /* ISO 8601 in LOCAL time, with the date. The old form was time-of-day only, so a session
        running past midnight produced timestamps that sort wrongly and cannot be placed on a
@@ -1124,7 +1170,8 @@ if(ROLE === 'stim'){
       prev.dur = Math.round((now.getTime()-prev.ms)/10)/100;
       closedPrev = true;
     }
-    const row={n:++logSeq, wall, type, ori:orientation, dur:duration, sf, tf, contrast, ms:now.getTime(), role: role||''};
+    const row={n:++logSeq, wall, type, ori:orientation, dur:duration, sf, tf, contrast, ms:now.getTime(),
+               role: role||'', plaid: (+plaidAngle||0) || null};
     rows.push(row);
     /* `prev` goes along whenever its duration was just filled in above, so the copy on disk
        carries the closed row rather than the open one it was first written as. */
@@ -1133,12 +1180,13 @@ if(ROLE === 'stim'){
     const el=document.createElement('tr');
     el.innerHTML=`<td>${row.n}</td><td>${esc(wall)}</td><td class="type-${esc(type)}">${esc(type)}</td>
       <td>${g(orientation,v=>v+'°')}</td><td>${g(duration,v=>v+'s')}</td><td>${g(sf,v=>v.toFixed(3))}</td>
-      <td>${g(tf,v=>v.toFixed(1))}</td><td>${g(contrast,v=>v.toFixed(2))}</td>`;
+      <td>${g(tf,v=>v.toFixed(1))}</td><td>${g(contrast,v=>v.toFixed(2))}</td>
+      <td>${row.plaid ? esc(orientation+'+'+(orientation+row.plaid)+'\u00b0') : '\u2014'}</td>`;
     logBody.appendChild(el);                              // oldest on top, newest at the bottom
     const sc = logBody.closest('.logscroll'); if(sc) sc.scrollTop = sc.scrollHeight;   // keep newest in view
   }
   function logTrial(tr){ logEntry({type:tr.type, orientation:tr.orientation, duration:tr.duration,
-                                   sf:tr.sf, tf:tr.tf, contrast:tr.contrast,
+                                   sf:tr.sf, tf:tr.tf, contrast:tr.contrast, plaidAngle:tr.plaidAngle,
                                    role: tr.contrastHalf ? 'contrast' : (tr.type==='moving'||tr.type==='still') ? 'grating' : null}); }
   /* Clear = a session boundary, so it must clear everything that carries across one.
      Before, it emptied `rows` only: `logSeq` kept counting and `playedEvents` kept growing, so
@@ -1173,8 +1221,8 @@ if(ROLE === 'stim'){
        fold 225 into 45 by accident. orientation_deg is kept alongside it, unchanged, so
        anything already reading that name keeps working. */
     const head='n,wallclock,unix_ms,type,direction_deg,orientation_deg,duration_s,'
-      +'spatial_freq_cpd,temporal_freq_hz,contrast,role';
-    const body=rows.map(r=>[r.n,r.wall,r.ms,r.type,r.ori,r.ori,r.dur,r.sf,r.tf,r.contrast,r.role||'']
+      +'spatial_freq_cpd,temporal_freq_hz,contrast,role,plaid_angle_deg';
+    const body=rows.map(r=>[r.n,r.wall,r.ms,r.type,r.ori,r.ori,r.dur,r.sf,r.tf,r.contrast,r.role||'',r.plaid??'']
       .join(',')).join('\n');
     download('stimlog.csv', head+'\n'+body, 'text/csv');
   });
@@ -1203,14 +1251,17 @@ if(ROLE === 'stim'){
   const playedEvents = []; let curBlock = null;
   function openBlock(type, tr){
     curBlock = { type, orientation: tr?tr.orientation:null, sf: tr?tr.sf:null,
-                 tf: tr?tr.tf:null, contrast: tr?tr.contrast:null, startMs: performance.now() };
+                 tf: tr?tr.tf:null, contrast: tr?tr.contrast:null,
+                 plaidAngle: tr ? (+tr.plaidAngle||0) : 0, plaidNorm: tr ? !!tr.plaidNorm : false,
+                 startMs: performance.now() };
   }
   function snapshotBlock(){
     if(!curBlock) return null;
     const dur = (performance.now()-curBlock.startMs)/1000;
     if(dur <= 0.02) return null;
     return { type:curBlock.type, orientation:curBlock.orientation, sf:curBlock.sf,
-             tf:curBlock.tf, contrast:curBlock.contrast, duration_s:dur };
+             tf:curBlock.tf, contrast:curBlock.contrast, duration_s:dur,
+             plaidAngle:curBlock.plaidAngle, plaidNorm:curBlock.plaidNorm };
   }
   /* Grey IS shown on the screen, so it belongs in the record and is kept. But a grey block
      measures wall time from when it opened, so a runner left open between recordings ends up
@@ -1268,7 +1319,9 @@ if(ROLE === 'stim'){
       const z = it.zone;
       const ztxt = z ? ` <span class="hint">▦${z.col+1},${z.row+1}</span>` : '';
       let oriCell = '—';
-      if(isGrating && ori!=null) oriCell = ori+'°'+ztxt;
+      const pa = num(it.plaidAngle);
+      if(isGrating && ori!=null)
+        oriCell = (pa ? ori+'+'+(ori+pa)+'°' : ori+'°')+ztxt;
       else if(it.type==='bar') oriCell = (dir!=null?dir:0)+'° →';
       else if(it.type==='blitz') oriCell = '⚡'+ztxt;
       row.innerHTML = `<td class="qhandle" title="drag to reorder">⠿ <span class="qnum">${i+1}</span></td>`+
@@ -1357,7 +1410,8 @@ if(ROLE === 'stim'){
   function pushBlock(b){ queue.push(b); renderQueue(); }
   function addToQueue(tr){
     pushBlock({ type:tr.type, orientation:tr.orientation, sf:tr.sf, tf:tr.tf,
-                contrast:tr.contrast, duration:tr.duration, moving:tr.moving, zone:tr.zone||null });
+                contrast:tr.contrast, duration:tr.duration, moving:tr.moving, zone:tr.zone||null,
+                plaidAngle:+tr.plaidAngle||0, plaidNorm:!!tr.plaidNorm });
   }
   function addBlock(type){                        // a rest block (grey/black) of the rest-slider duration
     pushBlock({ type, orientation:null, duration:(+greyBetweenEl.value||0) });
@@ -1425,6 +1479,21 @@ if(ROLE === 'stim'){
     [0,45,90,135,180,225,270,315].forEach((o,i) => {
       if(i>0 && gap>0) addBlock('grey');         // grey gap between gratings
       addToQueue({...base, orientation:o, moving:true, type:'moving'});
+    });
+  };
+  /* Three plaids of the SAME plaid angle, their component pairs 30° apart (0/90, 30/120, 60/150
+     at 90°). Three rather than one because a single pair shown over and over adapts the very
+     neurons it is meant to measure; rotating the pair leaves the plaid angle — the thing under
+     test — fixed. Lin, Okun, Carandini & Harris 2015 present their plaids this way. Bases are
+     counted from whatever orientation the form is set to, so the trio can be placed anywhere. */
+  document.getElementById('qPlaidTrio').onclick = ()=>{
+    const base = formTrial();
+    const angle = base.plaidAngle || 90;           // a trio of single gratings is just a sweep
+    const gap = +greyBetweenEl.value||0;
+    [0,30,60].forEach((d,i) => {
+      if(i>0 && gap>0) addBlock('grey');
+      addToQueue({...base, orientation:(base.orientation+d)%360, plaidAngle:angle,
+                  moving:true, type:'moving'});
     });
   };
   /* receptive-field sweep: the SAME grating shown in every cell of the grid in turn (only the
@@ -1531,7 +1600,8 @@ if(ROLE === 'stim'){
       saved: new Date().toISOString(),
       session_started: sessionStartedAt.toISOString(),
       queue: queue.map(it=>({...it})),
-      form, moveSeg: segSel('moveSeg'), waveSeg: segSel('waveSeg'), zone: zoneSel ? {...zoneSel} : null,
+      form, moveSeg: segSel('moveSeg'), waveSeg: segSel('waveSeg'), plaidSeg: segSel('plaidSeg'),
+      zone: zoneSel ? {...zoneSel} : null,
       run: { runIdx, paused, was_running: running, next_block: running ? Math.max(0, runIdx - (paused?0:1)) : runIdx },
       log: { n: logSeq, rows: rows.length },
       screen: { state: stateName.textContent, sub: stateSub.textContent },
@@ -1560,7 +1630,7 @@ if(ROLE === 'stim'){
   const _renderQueue = renderQueue; renderQueue = function(){ _renderQueue(); saveSession(); };
   const _setState = setState; setState = function(a,b,c){ _setState(a,b,c); saveSession(); };
   [...FORM_IDS, ...CHECK_IDS].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener('input', saveSession); });
-  document.querySelectorAll('#moveSeg button, #waveSeg button').forEach(b=>b.addEventListener('click', saveSession));
+  document.querySelectorAll('#moveSeg button, #waveSeg button, #plaidSeg button').forEach(b=>b.addEventListener('click', saveSession));
   window.addEventListener('pagehide', ()=>{ sessDirty = true; flushSession(); });
 
   function applySession(st){
@@ -1572,6 +1642,7 @@ if(ROLE === 'stim'){
       b.classList.toggle('sel', b.dataset[key]===val); }); };
     if(st.moveSeg) pick('moveSeg','mv',st.moveSeg.mv);
     if(st.waveSeg) pick('waveSeg','wave',st.waveSeg.wave);
+    if(st.plaidSeg) pick('plaidSeg','pn',st.plaidSeg.pn);
     pushCfg();
     zoneSel = st.zone ? {col:+st.zone.col, row:+st.zone.row} : null; renderZoneGrid(); previewZone();
     queue.length = 0; (st.queue||[]).forEach(it=>queue.push({...it}));

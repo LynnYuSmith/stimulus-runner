@@ -63,6 +63,37 @@ The orientation convention is matched frame-for-frame to the reference generator
 term is `− fy·sin θ`, and the drift phase decreases). Without that, 45° and 135° come out
 mirrored and every oblique tuning label is wrong. Gamma LUT is not applied yet.
 
+### Plaids
+
+Set a **plaid angle** and a second grating that many degrees away is **added** to the first,
+and their sum is shown:
+
+```
+L(x,y,t) = L_mean · (1 + C · k · Σ_θ wave(2π·f·(x·cosθ + y·sinθ) + φ(t)))
+```
+
+Both components share the spatial frequency, the temporal frequency and the phase, so a moving
+plaid drifts coherently. `k` is what the contrast slider is taken to mean: `1` gives each
+component the set contrast, so the sum spans twice it and anything above 0.5 flattens against
+the screen's range; `0.5` keeps the pair inside the set contrast and gives each component half.
+The clamp is the display running out of range, and it is not hidden — 50 % per component is the
+highest a plaid carries with its peaks intact.
+
+A plaid angle of 0 is *not* a plaid, it is a single grating, and nothing downstream treats it
+as one. **+ plaid trio** queues three plaids of one angle with their component pairs 30° apart
+(0/90, 30/120, 60/150 at 90°), which rotates the pair without changing the angle under test, so
+repetition does not adapt the answer.
+
+Use the **sinusoid** waveform for plaids. The binary default exists to match the baked stimulus
+videos, and two summed binary waves give a three-level chequer rather than the smooth
+interference pattern the word *plaid* normally means. Binary is still presented and recorded
+faithfully — it is simply a different stimulus.
+
+The marker is unchanged: a plaid counts as a moving or still grating to the photodiode. Which
+blocks were plaids is in the log (`plaid_angle_deg`) and in the exported protocol
+(`plaid_angle_deg`, `component_orientations_deg`, `plaid_contrast_per`), where the orientation
+always lived.
+
 ## Corner markers
 
 At every onset a **red** square flashes in a corner (top-right by default), coded by pulse
@@ -145,6 +176,12 @@ these instead:
   and trigger-out this would need next; look there before building it here.
 * **StimServer / FocusStack** — Muir & Kampa 2015, *Front Neuroinform* 8:85. The closest match
   to this exact use case.
+
+Summed gratings are taken from **Lin, Okun, Carandini & Harris 2015**, *The Nature of Shared
+Cortical Variability*, *Neuron* 87:644–656 — gratings and plaids over a multi-site array, the
+plaid angle fixed within a session and the component pair rotated in 30° steps across three
+pairs to keep adaptation out of the measurement. The trio button and the per-component contrast
+convention here follow that protocol.
 
 The grating parameters (0.02 cyc/px, ~1 Hz, full contrast) follow the in-house generator and
 sit in the canonical mouse-V1 range (Niell & Stryker 2008, *J Neurosci* 28:7520–7536). The
