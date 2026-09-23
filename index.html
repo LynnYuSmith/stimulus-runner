@@ -401,7 +401,7 @@
         <div class="logscroll">
           <table>
             <thead><tr><th>#</th><th>wall-clock</th><th>type</th><th>ori</th><th>dur</th>
-              <th>SF</th><th>TF</th><th>C</th><th>2nd grating</th></tr></thead>
+              <th>SF</th><th>TF</th><th>C</th><th>2nd grating</th><th>kind</th><th>pair</th></tr></thead>
             <tbody id="logBody"></tbody>
           </table>
         </div>
@@ -1210,7 +1210,8 @@ if(ROLE === 'stim'){
   }
   const toWire = r => ({ n:r.n, wallclock:r.wall, unix_ms:r.ms, type:r.type,
     direction_deg:r.ori ?? null, orientation_deg:r.ori ?? null, duration_s:r.dur ?? null,
-    spatial_freq_cpd:r.sf ?? null, temporal_freq_hz:r.tf ?? null, contrast:r.contrast ?? null, role:r.role||'',
+    spatial_freq_cpd:r.sf ?? null, temporal_freq_hz:r.tf ?? null, contrast:r.contrast ?? null,
+    stim_kind:r.kind||'', stim_code:r.code||'', pair_code:r.pairCode||'', pair_part:r.pairPart ?? null,
     plaid_direction_deg:r.plaidDir ?? null, plaid_temporal_freq_hz:r.plaidTf ?? null });
   function persist(batch){
     try{
@@ -1250,7 +1251,13 @@ if(ROLE === 'stim'){
   // escape any string that flows into innerHTML — protocol files come from disk / git and are untrusted
   const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const num=v=>{ const n=+v; return Number.isFinite(n)?n:null; };   // coerce; non-numbers -> dash
-  function logEntry({type, orientation=null, duration=null, sf=null, tf=null, contrast=null, role=null,
+  /* `kind` is what was on the screen for THIS block — a grating, or a plaid when two are
+     summed. `pairsWithPrevious` says the block before it was a grating too with nothing
+     between, which makes the two of them a contrast pair. The pair is a relation, not a kind:
+     neither block stops being a grating or a plaid for belonging to one, which is why the
+     second half is no longer labelled "contrast" as though it were a third sort of stimulus. */
+  function logEntry({type, orientation=null, duration=null, sf=null, tf=null, contrast=null,
+                     kind=null, code=null, pairsWithPrevious=false,
                      plaidDir=null, plaidTf=null}){
     const now=new Date();
     /* ISO 8601 in LOCAL time, with the date. The old form was time-of-day only, so a session
@@ -1270,8 +1277,17 @@ if(ROLE === 'stim'){
       closedPrev = true;
     }
     const row={n:++logSeq, wall, type, ori:orientation, dur:duration, sf, tf, contrast, ms:now.getTime(),
-               role: role||'', plaidDir: plaidDir==null ? null : +plaidDir,
+               kind: kind||'', code: code||'', pairCode:'', pairPart:null,
+               plaidDir: plaidDir==null ? null : +plaidDir,
                plaidTf: plaidTf==null ? null : +plaidTf};
+    /* The pair is only known when its SECOND block starts, so the first block's row is amended
+       here and sent again. The server replays a repeated `n` as the later value, which is the
+       same route the retroactive duration above already takes. */
+    if(pairsWithPrevious && prev && prev.code && code && !prev.pairCode){
+      prev.pairCode = prev.code + 'c' + code; prev.pairPart = 1;
+      row.pairCode = prev.pairCode; row.pairPart = 2;
+      closedPrev = true;                       // prev changed, so it goes out again
+    }
     rows.push(row);
     /* `prev` goes along whenever its duration was just filled in above, so the copy on disk
        carries the closed row rather than the open one it was first written as. */
@@ -1281,14 +1297,19 @@ if(ROLE === 'stim'){
     el.innerHTML=`<td>${row.n}</td><td>${esc(wall)}</td><td class="type-${esc(type)}">${esc(type)}</td>
       <td>${g(orientation,v=>v+'°')}</td><td>${g(duration,v=>v+'s')}</td><td>${g(sf,v=>v.toFixed(3))}</td>
       <td>${g(tf,v=>v.toFixed(1))}</td><td>${g(contrast,v=>v.toFixed(2))}</td>
-      <td>${row.plaidDir==null ? '\u2014' : esc('p'+row.plaidDir+'\u00b0 @'+row.plaidTf+'Hz')}</td>`;
+      <td>${row.plaidDir==null ? '\u2014' : esc('p'+row.plaidDir+'\u00b0 @'+row.plaidTf+'Hz')}</td>
+      <td>${esc(row.kind||'\u2014')}</td><td>${esc(row.pairCode||'\u2014')}</td>`;
     logBody.appendChild(el);                              // oldest on top, newest at the bottom
     const sc = logBody.closest('.logscroll'); if(sc) sc.scrollTop = sc.scrollHeight;   // keep newest in view
   }
-  function logTrial(tr){ logEntry({type:tr.type, orientation:tr.orientation, duration:tr.duration,
-                                   sf:tr.sf, tf:tr.tf, contrast:tr.contrast,
-                                   plaidDir: tr.plaid ? tr.dir2 : null, plaidTf: tr.plaid ? tr.tf2 : null,
-                                   role: tr.contrastHalf ? 'contrast' : (tr.type==='moving'||tr.type==='still') ? 'grating' : null}); }
+  function logTrial(tr){
+    const block = {type:tr.type, orientation:tr.orientation, plaid:!!tr.plaid, dir2:tr.dir2};
+    logEntry({type:tr.type, orientation:tr.orientation, duration:tr.duration,
+              sf:tr.sf, tf:tr.tf, contrast:tr.contrast,
+              plaidDir: tr.plaid ? tr.dir2 : null, plaidTf: tr.plaid ? tr.tf2 : null,
+              kind: window.STIMPROTOCOL.stimKind(block),
+              code: window.STIMPROTOCOL.mescCode(block),
+              pairsWithPrevious: !!tr.contrastHalf}); }
   /* Clear = a session boundary, so it must clear everything that carries across one.
      Before, it emptied `rows` only: `logSeq` kept counting and `playedEvents` kept growing, so
      the next session's CSV started mid-count (abf001 260902 began at n=206) and the exported
@@ -1322,8 +1343,10 @@ if(ROLE === 'stim'){
        fold 225 into 45 by accident. orientation_deg is kept alongside it, unchanged, so
        anything already reading that name keeps working. */
     const head='n,wallclock,unix_ms,type,direction_deg,orientation_deg,duration_s,'
-      +'spatial_freq_cpd,temporal_freq_hz,contrast,role,plaid_direction_deg,plaid_temporal_freq_hz';
-    const body=rows.map(r=>[r.n,r.wall,r.ms,r.type,r.ori,r.ori,r.dur,r.sf,r.tf,r.contrast,r.role||'',
+      +'spatial_freq_cpd,temporal_freq_hz,contrast,stim_kind,stim_code,pair_code,pair_part,'
+      +'plaid_direction_deg,plaid_temporal_freq_hz';
+    const body=rows.map(r=>[r.n,r.wall,r.ms,r.type,r.ori,r.ori,r.dur,r.sf,r.tf,r.contrast,
+                           r.kind||'',r.code||'',r.pairCode||'',r.pairPart??'',
                            r.plaidDir??'',r.plaidTf??'']
       .join(',')).join('\n');
     download('stimlog.csv', head+'\n'+body, 'text/csv');

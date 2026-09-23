@@ -37,6 +37,15 @@ A plaid turns both of its gratings, so only the drift reverses. The contrast hal
 where it always was, at presentation time, so it carries 4 pulses and `role=contrast` without
 anything new being trusted.
 
+**The record now says what a block WAS, separately from what it belongs to.** The trial log's
+`role` column is replaced by four: `stim_kind` (`grating`, or `plaid` when two gratings are
+summed — superimposed, so not a grating), `stim_code` (`135`, `0p90`), and `pair_code` +
+`pair_part` for the contrast pair. The second half of a pair is no longer labelled "contrast":
+both halves are gratings, and it is the two together that are the contrast stimulus. The
+photodiode marker is untouched — the second half still carries its four pulses. The pipeline
+derives its own base/contrast labels from the photodiode and never read this column, so nothing
+downstream changes; its own vocabulary still says "contrast" for the second epoch.
+
 **The queue is written in the MESc comments' own notation**, shown under the Sequence header
 with a button to copy it: `135` a grating, `0p90` a plaid, `135c315` a contrast pair. Each
 grating's code also goes into the exported protocol as `stim_code`, so the comment typed at the

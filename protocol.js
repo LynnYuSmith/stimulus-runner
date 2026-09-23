@@ -181,6 +181,43 @@
   const isGrating = (type) => type === "moving" || type === "still";
 
   /**
+   * What was actually on the screen for one block.
+   *
+   *   `grating`  one grating
+   *   `plaid`    two gratings SUMMED — superimposed, so it is not a grating, it is a plaid
+   *   null       a rest screen, a bar, a flash: not a grating stimulus at all
+   *
+   * A contrast pair is deliberately NOT a kind. Both of its blocks are ordinary gratings (or
+   * plaids); it is the two of them TOGETHER that make the contrast stimulus, and that lives in
+   * `pair_code`/`pair_part` below, as a relation between blocks rather than a property of one.
+   */
+  function stimKind(block) {
+    if (!isGrating(block.type)) return null;
+    return block.plaid ? "plaid" : "grating";
+  }
+
+  /**
+   * Which contrast pair each block belongs to, as `{code, part}` aligned to the list, or null.
+   *
+   * Two gratings with nothing between them are a pair: `code` names the pair the way a MESc
+   * comment does (`135c315`, `0p90c180p270`) and `part` is 1 for the base and 2 for the one
+   * shown straight after it. Neither block stops being a grating or a plaid for it.
+   */
+  function pairMembership(blocks) {
+    const out = (blocks || []).map(() => null);
+    for (let i = 0; i + 1 < (blocks || []).length; i++) {
+      if (out[i]) continue;                       // already the second half of the pair before
+      const a = mescCode(blocks[i]), b = mescCode(blocks[i + 1]);
+      if (a == null || b == null) continue;
+      const code = a + "c" + b;
+      out[i] = { code, part: 1 };
+      out[i + 1] = { code, part: 2 };
+      i++;                                        // a pair is two, so a third does not join it
+    }
+    return out;
+  }
+
+  /**
    * Plan the timeline of a QUEUE run: each item is preceded by a grey block of
    * `greyBetweenS` seconds, then the grating for its own duration. Returns an ordered
    * list of blocks with cumulative start/end times (seconds from run start).
@@ -219,6 +256,7 @@
    */
   function buildProtocol(played, opts) {
     opts = opts || {};
+    const pairs = pairMembership(played);
     const seq = [];
     let t = 0;
     const oris = new Set();
@@ -260,6 +298,9 @@
         item.plaid_contrast_per = d2 == null ? null : (b.plaidNorm ? "plaid" : "component");
         item.stim_code = mescCode({ type: b.type, orientation: b.orientation,
                                     plaid: d2 != null, dir2: d2 });
+        item.stim_kind = stimKind({ type: b.type, plaid: d2 != null });
+        item.pair_code = pairs[i] ? pairs[i].code : null;
+        item.pair_part = pairs[i] ? pairs[i].part : null;
         oris.add(Number(b.orientation));
         if (stimDur == null) stimDur = dur;
       } else if (b.type === "grey" && greyDur == null) {
@@ -315,7 +356,7 @@
     MARKER, STIM, pulsesFor, markerSidePx, markerTrainDuration, blockLabel,
     queueTimeline, buildProtocol, cyclesPerPixel, gratingPhaseArg,
     plaidComponents, plaidAngle, plaidLuminance, driftPhase, reversalAmplitude,
-    mescCode, mescComment,
+    mescCode, mescComment, stimKind, pairMembership,
   };
 
   if (typeof module !== "undefined" && module.exports) module.exports = API;

@@ -157,22 +157,46 @@ test("neither drag nor the arrows reorder while the queue is running", () => {
   assert.strictEqual(q.order().split(" ")[0], "0", "the arrow moved a block during a run");
 });
 
-test("a grating straight after a grating is the contrast half: 4 pulses, role=contrast; after grey it is 3", () => {
+test("a grating straight after a grating gets 4 pulses and the two become one pair", () => {
   const { sandbox } = loadPage(`window.__c = {
     show: (ori) => showGrating({ type:'moving', orientation:ori, sf:0.02, tf:1, contrast:1, duration:4, moving:true }),
     grey: () => applyGrey(true),
     count: () => R.st.markerCount,
-    lastRole: () => rows[rows.length-1].role,
+    last: (k) => rows[rows.length-1] && rows[rows.length-1][k],
+    at: (i, k) => rows[i] && rows[i][k],
   };`);
   const c = sandbox.window.__c;
   c.grey(); c.show(135);
   assert.strictEqual(c.count(), 3, "a grating after grey is a plain moving grating");
-  assert.strictEqual(c.lastRole(), "grating");
+  assert.strictEqual(c.last("kind"), "grating");
+  assert.strictEqual(c.last("code"), "135");
+  assert.strictEqual(c.last("pairCode"), "", "nothing to pair with yet");
   c.show(315);
-  assert.strictEqual(c.count(), 4, "a grating straight after a grating is the contrast half");
-  assert.strictEqual(c.lastRole(), "contrast");
+  assert.strictEqual(c.count(), 4, "the second half of a pair is marked with four pulses");
+  // BOTH blocks are still gratings. The pair is what the two of them are together.
+  assert.strictEqual(c.last("kind"), "grating", "the second block is a grating, not a 'contrast'");
+  assert.strictEqual(c.last("pairCode"), "135c315");
+  assert.strictEqual(c.last("pairPart"), 2);
+  assert.strictEqual(c.at(1, "pairCode"), "135c315", "the first block was amended into the pair");
+  assert.strictEqual(c.at(1, "pairPart"), 1);
   c.grey(); c.show(135);
   assert.strictEqual(c.count(), 3, "grey in between breaks the pair");
+  assert.strictEqual(c.last("pairCode"), "");
+});
+
+test("a plaid is logged as a plaid, because its two gratings are superimposed", () => {
+  const { sandbox } = loadPage(`window.__c = {
+    show: (tr) => showGrating(Object.assign({ type:'moving', sf:0.02, tf:1, contrast:1,
+                                              duration:4, moving:true }, tr)),
+    grey: () => applyGrey(true),
+    last: (k) => rows[rows.length-1] && rows[rows.length-1][k],
+  };`);
+  const c = sandbox.window.__c;
+  c.grey(); c.show({ orientation: 0, plaid: true, dir2: 90, tf2: 1 });
+  assert.strictEqual(c.last("kind"), "plaid", "two summed gratings are not a grating");
+  assert.strictEqual(c.last("code"), "0p90");
+  c.grey(); c.show({ orientation: 0 });
+  assert.strictEqual(c.last("kind"), "grating");
 });
 
 test("+ contrast queues the same grating turned 180°, with NO grey between the two", () => {
@@ -181,13 +205,13 @@ test("+ contrast queues the same grating turned 180°, with NO grey between the 
     set: (id, v) => { const e = document.getElementById(id); e.value = v; },
     pick: (seg, key, val) => document.querySelectorAll('#'+seg+' button').forEach(b =>
       b.classList.toggle('sel', b.dataset[key] === val)),
-    queue: () => queue.map(it => ({ type: it.type, ori: it.orientation, dir2: it.dir2,
-                                    plaid: !!it.plaid })),
+    queue: () => JSON.stringify(queue.map(it => ({ type: it.type, ori: it.orientation,
+                                    dir2: it.dir2, plaid: !!it.plaid }))),
   };`);
   const q = sandbox.window.__q;
   q.set("ori", 135); q.set("greyBetween", 4);
   q.press("qContrast");
-  const got = q.queue();
+  const got = JSON.parse(q.queue());
   assert.strictEqual(got.length, 2, "a pair is two blocks, not three");
   assert.strictEqual(got[0].ori, 135);
   assert.strictEqual(got[1].ori, 315, "the contrast half is the base turned 180°");
@@ -197,28 +221,31 @@ test("+ contrast queues the same grating turned 180°, with NO grey between the 
 test("+ contrast turns BOTH gratings of a plaid, so only the drift reverses", () => {
   // Driven through contrastPair itself: the page's seg buttons are read with a selector the
   // DOM stub does not implement, so going through the form here would test the stub, not this.
-  const { sandbox } = loadPage(`window.__p = (b) => contrastPair(b);`);
+  // JSON round-trip: objects built inside the vm have the sandbox's Object.prototype, and
+  // deepStrictEqual compares prototypes -- it fails on values that are otherwise identical.
+  const { sandbox } = loadPage(`window.__p = (b) => JSON.stringify(contrastPair(b));`);
   assert.deepStrictEqual(
-    sandbox.window.__p({ orientation: 30, dir2: 120, plaid: true, type: "moving" }),
+    JSON.parse(sandbox.window.__p({ orientation: 30, dir2: 120, plaid: true, type: "moving" })),
     [{ orientation: 30, dir2: 120, plaid: true, type: "moving" },
      { orientation: 210, dir2: 300, plaid: true, type: "moving" }]);
   // and it wraps rather than running past 360
-  assert.strictEqual(sandbox.window.__p({ orientation: 315, dir2: 45 })[1].orientation, 135);
-  assert.strictEqual(sandbox.window.__p({ orientation: 315, dir2: 45 })[1].dir2, 225);
+  const wrapped = JSON.parse(sandbox.window.__p({ orientation: 315, dir2: 45 }));
+  assert.strictEqual(wrapped[1].orientation, 135);
+  assert.strictEqual(wrapped[1].dir2, 225);
 });
 
 test("+ contrast sweep is four pairs over all eight directions, grey only between pairs", () => {
   const { sandbox } = loadPage(`window.__q = {
     press: (id) => document.getElementById(id).onclick(),
     set: (id, v) => { const e = document.getElementById(id); e.value = v; },
-    queue: () => queue.map(it => it.type === 'grey' ? 'grey' : it.orientation),
+    queue: () => JSON.stringify(queue.map(it => it.type === 'grey' ? 'grey' : it.orientation)),
   };`);
   const q = sandbox.window.__q;
   q.set("ori", 0); q.set("greyBetween", 4);
   q.press("qContrastSweep");
-  assert.deepStrictEqual(q.queue(),
+  assert.deepStrictEqual(JSON.parse(q.queue()),
     [0, 180, "grey", 45, 225, "grey", 90, 270, "grey", 135, 315]);
-  const dirs = q.queue().filter(v => v !== "grey");
+  const dirs = JSON.parse(q.queue()).filter(v => v !== "grey");
   assert.strictEqual(new Set(dirs).size, 8, "every direction appears, and appears once");
 });
 

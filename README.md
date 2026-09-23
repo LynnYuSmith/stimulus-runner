@@ -90,10 +90,24 @@ back the other way, with no grey between** — 135 then 315. The response of int
 *change*, which is why the grey must not be there: a rest between them makes two independent
 presentations instead.
 
-Nothing marks the pair by hand. A grating shown straight after a grating is recognised as the
-contrast half **when it is presented**, from what was actually on screen rather than from the
-queue's plan, and gets **4 marker pulses** instead of 3 with `role=contrast` in the log. A pair
-assembled by hand records identically to one of these.
+Nothing marks the pair by hand. A grating shown straight after a grating is recognised **when
+it is presented**, from what was actually on screen rather than from the queue's plan, and gets
+**4 marker pulses** instead of 3. A pair assembled by hand records identically to one of these.
+
+**The pair is a relation, not a kind.** Both halves are ordinary gratings (or plaids); it is the
+two of them *together* that make the contrast stimulus, so neither is labelled "contrast" as
+though it were a third sort of thing. The log says what each block was and which pair it belongs
+to, in separate columns:
+
+| column | |
+|---|---|
+| `stim_kind` | `grating`, or `plaid` when two gratings are summed — a plaid is not a grating, its components are superimposed |
+| `stim_code` | the block's own code: `135`, `0p90` |
+| `pair_code` | the pair both halves belong to: `135c315`; blank when the block is not in one |
+| `pair_part` | `1` for the base, `2` for the one shown straight after it |
+
+The first half's row is written before its partner exists, so it is amended and sent again the
+moment the pair forms — the same route the retroactive block duration already takes.
 
 **+ contrast sweep** queues four such pairs — 135c315, 180c0, 225c45, 270c90 — covering all
 eight directions exactly once, with grey between the pairs and never inside one. A plaid turns
