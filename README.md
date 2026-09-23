@@ -2,275 +2,225 @@
 
 [![tests](https://github.com/LynnYuSmith/stimulus-runner/actions/workflows/tests.yml/badge.svg)](https://github.com/LynnYuSmith/stimulus-runner/actions/workflows/tests.yml)
 
-A grating presenter for a two-photon rig, in a browser. Grey screen, switch to a grating of
-the orientation, frequency, contrast and duration you want, switch back. Queue a sequence and
-run it. Every block is marked into the recording, so the played protocol lands on the data
-without new alignment code.
+Browser-based grating presenter for a two-photon rig. Presents drifting, standing and
+contrast-reversing gratings, plaids and back-to-back contrast pairs; marks every block into the
+recording via a photodiode-read corner marker; writes a trial log and a played protocol in the
+analysis pipeline's schema.
 
-Built to replace an aging MATLAB rig. No install: one HTML page and a 100-line Python server.
+One HTML page plus a standard-library Python server. No install. Written to replace a MATLAB
+rig setup.
 
-![the cockpit: quick gratings, the grating form, and a live mirror of what the mouse sees](https://raw.githubusercontent.com/LynnYuSmith/stimulus-runner/main/docs/cockpit.png)
+![cockpit](https://raw.githubusercontent.com/LynnYuSmith/stimulus-runner/main/docs/cockpit.png)
 
-## Run it
+## Running
 
 ```bash
-python serve.py               # opens http://127.0.0.1:8000 in Chrome / Edge
-python serve.py 8080          # another port
-python serve.py --no-browser  # a tab is already open
+python serve.py               # http://127.0.0.1:8000, opens Chrome/Edge
+python serve.py 8080
+python serve.py --no-browser
 ```
 
-Standard library only, Python 3.8+, bound to `127.0.0.1`. It serves the page and owns the
-`protocols/` folder. Idle: ~0 % CPU, ~20 MB. Windows: `python serve.py` or `py serve.py`.
-Needs Chrome or Edge (WebGL1 + ES6). Integrated graphics are fine; a dedicated GPU is not
-needed.
+Python 3.8+, standard library only, bound to `127.0.0.1`. Serves the page, the `protocols/`
+folder, the trial log and the session file. Idle ~0 % CPU, ~20 MB. Requires Chrome or Edge
+(WebGL1 + ES6); integrated graphics are sufficient. The page also runs from
+`python -m http.server` or off disk, without the saved-protocol list.
 
-Without the server the page still works from `python -m http.server` or straight off disk —
-everything except the saved-protocol list.
+## Two roles
 
-## Two screens
+One page, two roles over `postMessage`.
 
-**Stimulus screen** — full-screen WebGL, the grating and the corner marker, nothing else.
-"Open stimulus window", drag it to the mouse's monitor. One monitor? "Fullscreen here".
-
-**Cockpit** — quick gratings, the grating form, the queue, the trial log, and a live mirror of
-what the mouse sees.
-
-One page in two roles (`#stim` vs control), talking over `postMessage`.
-
-| the queue and the trial log | what the mouse sees |
+| role | contents |
 |---|---|
-| ![a queued sweep and the log writing to disk](https://raw.githubusercontent.com/LynnYuSmith/stimulus-runner/main/docs/queue_and_log.png) | ![a 45° binary grating with the corner marker](https://raw.githubusercontent.com/LynnYuSmith/stimulus-runner/main/docs/stimulus_screen.png) |
+| stimulus (`#stim`) | full-screen WebGL: the stimulus and the corner marker only |
+| cockpit | presets, stimulus form, queue, trial log, live mirror of the stimulus screen |
 
-Keys: **Space** present (pause / resume during a sequence) · **G / Esc** grey · **B** black ·
-**1–8** presets. Click any value beside a slider to type an exact number. The **manual** link
-in the header is the in-app guide.
+Open the stimulus window and drag it to the animal's monitor; with one monitor use
+"Fullscreen here".
 
-## The grating
+Keys: `Space` present / pause / resume · `G`,`Esc` grey · `B` black · `1`–`8` presets. Click a
+value beside a slider to type it. The header **manual** link is the in-app guide.
+
+| queue and trial log | stimulus screen |
+|---|---|
+| ![queue](https://raw.githubusercontent.com/LynnYuSmith/stimulus-runner/main/docs/queue_and_log.png) | ![stimulus](https://raw.githubusercontent.com/LynnYuSmith/stimulus-runner/main/docs/stimulus_screen.png) |
+
+## Stimuli
+
+A block is the sum of one or two gratings:
 
 ```
-L(x,y,t) = L_mean · (1 + C · wave(2π·f·(x·cosθ + y·sinθ) + φ(t)))
+L(x,y,t) = L_mean · (1 + C · k · Σ_i a_i(t) · wave(2π·f·(x·cos θ_i + y·sin θ_i) + φ_i(t)))
 ```
 
-Square wave by default (what the reference videos use), sinusoid on a switch. Spatial
-frequency in **cycles per pixel** on a virtual frame — default 104 × 150 px, so 0.02 cyc/px is
-3 cycles across the width — then scaled to the output size.
+| term | |
+|---|---|
+| `wave` | square (default, matches the reference stimulus videos) or sinusoid |
+| `f` | spatial frequency, cycles per pixel of a virtual frame (default 104 × 150 px; 0.02 cyc/px = 3 cycles across), then scaled to the output rect |
+| `θ_i` | each grating's own direction, 0–345° in 15° steps |
+| `φ_i(t)`, `a_i(t)` | drifting: `φ_i` advances at that grating's temporal frequency, `a_i = 1`. Standing: `φ_i` fixed, `a_i = cos(2π·r_i·t)` at that grating's reversal rate; `r_i = 0` is an unmodulated standing grating |
+| `C`, `k` | contrast, and its interpretation for a plaid: `k = 1` per component (sum spans 2C), `k = 0.5` per plaid (each component C/2) |
 
-Grey, black and grating are the **same** WebGL surface, never rebuilt: grey is contrast 0 at
-the grey mean, black is contrast 0 at mean 0. A switch changes shader uniforms between frames.
-No black frame, no flash.
+Grey, black and grating are the same WebGL surface; transitions are uniform changes between
+frames, with no rebuild and no black frame. Grey is `C = 0` at the grey mean, black is `C = 0`
+at mean 0.
 
-The orientation convention is matched frame-for-frame to the reference generator (the vertical
-term is `− fy·sin θ`, and the drift phase decreases). Without that, 45° and 135° come out
-mirrored and every oblique tuning label is wrong. Gamma LUT is not applied yet.
+**Orientation convention.** The vertical term is `− fy·sin θ` and the drift phase decreases,
+matching the reference generator frame-for-frame. With the opposite sign, 45° and 135° are
+mirrored and every oblique tuning label is wrong. Verified against **pulse2percept** (Beyeler
+et al. 2017). No gamma LUT.
 
 ### Plaids
 
-Turn on the **second grating** and the screen shows the **sum of two gratings**, added frame by
-frame:
+A second grating is summed into the block, with its own direction and its own temporal or
+reversal frequency, so the two are never phase-locked. Values above `C = 0.5` per component
+clip against the display range; 0.5 is the highest that keeps the peaks intact.
 
-```
-L(x,y,t) = L_mean · (1 + C · k · Σ_i wave(2π·f·(x·cos θ_i + y·sin θ_i) + φ_i(t)))
-```
+Square-wave components sum to a three-level pattern rather than a smooth interference pattern.
+Use the sinusoid waveform for plaids unless the binary form is intended.
 
-Each grating has **its own direction** `θ_i` and **its own temporal frequency**, so each carries
-its own phase `φ_i(t)` and drifts at its own rate. They are never locked together: set opposing
-directions or different speeds and each goes its own way. Direction is on the same 0–345° scale
-as the first grating, so 0° and 180° are the same pattern drifting opposite ways.
-
-`k` is what the contrast slider is taken to mean: `1` gives each grating the set contrast, so the
-sum spans twice it and anything above 0.5 flattens against the screen's range; `0.5` keeps the
-pair inside the set contrast and gives each grating half. The clamp is the display running out of
-range, and it is not hidden — 50 % per grating is the highest a plaid carries with its peaks
-intact.
+A standing grating has an orientation, not a direction: 0° and 180° are then the same
+stimulus, and the direction control is read as orientation.
 
 ### Contrast pairs (4c4s)
 
-**+ contrast** queues the same grating drifting one way for its duration and then **straight
-back the other way, with no grey between** — 135 then 315. The response of interest is to the
-*change*, which is why the grey must not be there: a rest between them makes two independent
-presentations instead.
+Two gratings back to back with no grey between; the second is the first turned 180°
+(`135` then `315`). For a plaid both components turn, so the pattern is unchanged and only the
+drift reverses. The quantity of interest is the response to the change, so a rest between the
+two would make them independent presentations.
 
-Nothing marks the pair by hand. A grating shown straight after a grating is recognised **when
-it is presented**, from what was actually on screen rather than from the queue's plan, and gets
-**4 marker pulses** instead of 3. A pair assembled by hand records identically to one of these.
+Pairing is recognised at presentation time from what was on screen, not from the queue — a pair
+assembled by hand records identically. Any grating shown straight after a grating is treated as
+the second half, including a third in a row.
 
-**The pair is a relation, not a kind.** Both halves are ordinary gratings (or plaids); it is the
-two of them *together* that make the contrast stimulus, so neither is labelled "contrast" as
-though it were a third sort of thing. The log says what each block was and which pair it belongs
-to, in separate columns:
+### Queue builders
 
-| column | |
+| button | blocks |
 |---|---|
-| `stim_kind` | `grating`, or `plaid` when two gratings are summed — a plaid is not a grating, its components are superimposed |
-| `stim_code` | the block's own code: `135`, `0p90` |
-| `pair_code` | the pair both halves belong to: `135c315`; blank when the block is not in one |
-| `pair_part` | `1` for the base, `2` for the one shown straight after it |
+| `+ grating` | one grating |
+| `+ plaid` | one plaid |
+| `+ contrast` | one 4c4s pair |
+| `+ 0–315 sweep` | 8 gratings, 45° steps, grey between |
+| `+ plaid sweep` | 8 plaids, the pair rotated 45° per step, the angle between components fixed |
+| `+ contrast sweep` | 4 pairs — 135c315, 180c0, 225c45, 270c90 — all 8 directions once, grey between pairs only |
+| `+ zone sweep` | the same grating in every cell of the field grid |
+| `+ blitz`, `+ bar sweep`, `+ 4-dir sweep` | flat-field flashes, bar sweeps |
 
-The first half's row is written before its partner exists, so it is amended and sent again the
-moment the pair forms — the same route the retroactive block duration already takes.
+### Notation
 
-**+ contrast sweep** queues four such pairs — 135c315, 180c0, 225c45, 270c90 — covering all
-eight directions exactly once, with grey between the pairs and never inside one. A plaid turns
-both of its gratings, so the pattern is identical and only the drift reverses.
-
-### The MESc comment
-
-The Sequence card writes the queue out in the notation the MESc comments use, with a button to
-copy it, so what is typed at the microscope and what the runner records cannot drift apart:
+The Sequence card renders the queue in the notation used in the MESc comments, with a copy
+button.
 
 | | |
 |---|---|
-| `135` | a single grating at 135° |
-| `0p90` | a plaid — `p` between the two gratings that are summed |
-| `135c315` | a contrast pair — `c` between a base grating and the contrast grating straight after it |
+| `135` | grating at 135° |
+| `0p90` | plaid — `p` between the summed components |
+| `135c315` | contrast pair — `c` between base and the grating straight after it |
 
-A rest block separates entries; `c` is a relation between two blocks and is built from what
-actually follows what, not from anything stored on a block. Each grating's own code is in the
-exported protocol as `stim_code`.
+A rest block separates entries. `c` is a relation between two blocks, derived from order, not a
+property of either.
 
-**+ plaid** queues one plaid as the form reads it. **+ plaid sweep** queues the pair rotated
-through all eight directions in 45° steps — the same grid the single-grating sweep uses. The
-angle between the two gratings, the thing an experiment varies, stays fixed while the pair
-turns, so repetition does not adapt the answer.
+## Corner marker
 
-Use the **sinusoid** waveform for plaids. The binary default exists to match the baked stimulus
-videos, and two summed binary waves give a three-level chequer rather than the smooth
-interference pattern the word *plaid* normally means. Binary is still presented and recorded
-faithfully — it is simply a different stimulus.
-
-The marker is unchanged: a plaid counts as a moving or still grating to the photodiode. Which
-blocks carried a second grating is in the log (`plaid_direction_deg`, `plaid_temporal_freq_hz`)
-and in the exported protocol (`plaid_direction_deg`, `plaid_temporal_freq_hz`, `plaid_angle_deg`,
-`component_directions_deg`, `component_temporal_freqs_hz`, `plaid_contrast_per`), where the first
-grating's direction always lived.
-
-Drifting components are the default here, which is the right form for a mouse rig — the source
-below used drifting gratings in the mouse and contrast-reversing ones in the cat, where the
-plaids were made. Both are reachable: the **motion** setting decides which, and the record says
-which was presented.
-
-### Standing and contrast-reversing gratings
-
-A **still** grating holds its pattern and modulates its contrast instead, at a rate you set:
-
-```
-L(x,y,t) = L_mean · (1 + C · k · Σ_i cos(2π·r_i·t) · wave(2π·f·(x·cos θ_i + y·sin θ_i) + φ_i))
-```
-
-A reversal rate of **0 is a plain standing grating**, unmodulated. Above 0 the contrast swings
-between full and inverted, passing through a uniform grey field twice a cycle — which is the
-thing that tells a reversing grating from a drifting one, since a drifting grating never blanks.
-Each grating of a plaid reverses at its own rate.
-
-A standing grating has an orientation and not a direction, so 0° and 180° are then the same
-stimulus, and the direction control is read as orientation. Two standing gratings summed is the
-plaid form of the cat experiment below.
-
-The same slider carries both meanings, so it is labelled for whichever is in force and the
-exported protocol states it outright: `temporal_freq_role` is `drift_hz` or `reversal_hz`.
-
-## Corner markers
-
-At every onset a **red** square flashes in a corner (top-right by default), coded by pulse
-count. Mice are red-blind; the photodiode reads it.
+A red square flashes in a corner (top-right by default) at every onset, coded by pulse count.
+Mice are red-blind; the photodiode reads it. A pulse is 3 frames on, 3 off, at 51 fps.
+Constants live in `protocol.js` and are tested against the pipeline's.
 
 | block | pulses |
 |---|---|
 | grey | 1 |
-| static grating | 2 |
-| moving grating | 3 |
-| the contrast half of a back-to-back pair | 4 |
+| standing grating | 2 |
+| drifting grating | 3 |
+| second half of a contrast pair | 4 |
 | black | none |
 
-A pulse is 3 frames on, 3 off, at 51 fps. The constants live in `protocol.js` and are tested
-against the pipeline's.
+The marker carries the block *type* only. Direction, plaid components and pair membership come
+from the trial log and the exported protocol.
 
-## The cockpit
+## Records
 
-Every settings card folds. **Stimulus screen**, **Field zone** and **Special stimuli** start
-collapsed — they are set once — and the rest start open. Whatever is open is saved with the
-session and comes back after a reload or a crash, so a cockpit arranged for the night's work
-stays arranged.
+**Trial log** — every block, stimuli and rests alike, appended to `logs/stimlog_<id>.jsonl` as
+it plays and flushed to disk, with a CSV derived beside it. A badge reports the write state and
+turns red on failure.
 
-## The sequence
+| column | |
+|---|---|
+| `stim_kind` | `grating`, or `plaid` when two are summed |
+| `stim_code` | the block's own code: `135`, `0p90` |
+| `pair_code`, `pair_part` | the contrast pair it belongs to, and `1` or `2` within it |
+| `plaid_direction_deg`, `plaid_temporal_freq_hz` | the second grating |
+| `direction_deg`, `duration_s`, `spatial_freq_cpd`, `temporal_freq_hz`, `contrast` | the first |
 
-A literal list of blocks, each run for its own duration, in order: a grating, a grey rest, a
-black rest, or a whole 0–315° sweep with grey gaps. The header shows the block count and the
-total length.
+A pair is only known when its second block starts, so the first block's row is amended and
+re-sent; the server replays a repeated `n` as the later value.
 
-* **Drag to reorder** by the ⠿ handle (or the row); an insert line shows where it lands.
-  Locked while a queue runs.
-* **Pause / resume** with Space: the drift freezes on both screens and the sequence holds.
-  Both go into the log.
-* **Saved protocols are files**, not browser storage. Name a queue, **★ Save** → `serve.py`
-  writes `protocols/<name>.json`. Copy the folder to another rig, or commit it, and the
-  protocols come along. `protocols/8-ori sweep.json` ships as an example.
+**Played protocol** — `protocol_played.json`: the blocks actually shown, in order, with
+cumulative times, labels, marker counts, `stim_code`, `stim_kind`, `pair_code`, `pair_part`,
+`temporal_freq_role` (`drift_hz` or `reversal_hz`) and the full plaid description. These are
+intended onsets; the photodiode gives frame-exact ones and the two are aligned post-hoc.
 
-## What reaches the recording
+**Session** — queue, form, fold state and log position are saved to `logs/session_<id>.json`.
+A session interrupted mid-run is offered back on the next load and resumes into the same log
+file, standing paused at the interrupted block.
 
-**Export protocol (MAT)** writes `protocol_played.json`: the blocks actually shown, in order,
-with cumulative times, labels, orientations and marker counts, in the pipeline's schema. Those
-are the intended onsets — the photodiode gives the frame-exact ones, and the two align
-post-hoc.
+**Saved protocols** are files in `protocols/`, not browser storage, and travel with the folder.
 
-The **trial log** records every block, gratings and rests alike, with a wall-clock timestamp,
-and is written to disk as it goes (`logs/`), not held in the page. A session that dies mid-run
-is offered back on the next load: continue it, and the log keeps going into the same file.
-Exports as CSV or JSON.
+## Sequence
 
-## What's here
+A literal list of blocks, each run for its own duration. Drag by the ⠿ handle to reorder.
+`Space` pauses to grey and resumes by replaying the interrupted block whole; both are logged.
+While a run plays the queue is read-only and its edit controls are disabled.
+
+## Files
 
 | | |
 |---|---|
-| `index.html` | the app — UI, WebGL, dual-screen wiring, queue, logging |
-| `protocol.js` | the pure logic: marker encoding, stimulus defaults, the played-protocol builder, the timeline. No DOM, so it is tested headless |
-| `serve.py` | the server: the page, the `protocols/` folder, the trial log, the session file |
-| `protocols/` | saved protocols, one JSON each |
-| `test/` | `npm test` — protocol, queue, log and session checks, plus real-Chrome scripts that are not part of it |
+| `index.html` | UI, WebGL, dual-screen wiring, queue, logging |
+| `protocol.js` | pure logic: marker encoding, stimulus defaults, plaid and pair maths, protocol builder. No DOM |
+| `serve.py` | page, `protocols/`, trial log, session file |
+| `test/` | `npm test`; plus real-Chrome scripts run separately |
 
-`test/shots_real_chrome.js` takes the screenshots above in a real Chrome and exits 1 on any
-console error. A picture of a broken page is worse than no picture.
+`test/shots_real_chrome.js` regenerates the screenshots above in a real Chrome and exits 1 on
+any console error.
 
 ## Limits
 
-* **A dropped frame can change a marker.** The code is the pulse *count*, each pulse ~3 frames
-  wide. On a loaded rig PC a dropped frame inside a pulse changes the decoded type of that
-  trial, and the photodiode records the loss faithfully — it cannot recover the count. It has
-  happened. Fix planned: a wider pulse or a parity pulse. Until then use a machine that holds
-  60 Hz and check the decoded train against the played protocol.
-* Presentation timing is the browser's, so it is *measured* against the photodiode, not
-  trusted. The photodiode stays the ground truth by design.
-* The visual output and the drag-reorder have to be checked on the rig. Headless tests do not
-  see them.
+* A dropped frame can change a marker. The code is the pulse count and a pulse is ~3 frames
+  wide; a frame lost inside one changes the decoded type of that trial and the photodiode
+  records the loss faithfully. Use a machine that holds 60 Hz and check the decoded train
+  against the played protocol. A wider or parity pulse is the planned fix.
+* Presentation timing is the browser's and is measured against the photodiode, not trusted.
+* The marker cannot distinguish a plaid from a grating, or one direction from another. Identity
+  is recoverable only from the trial log paired to the marker train.
+* Any grating straight after a grating is marked as a contrast half, including a third in a row.
+  Pairing is by adjacency, not by intent.
+* No gamma LUT.
+* Plaids, contrast pairs, contrast reversal and the folding cockpit are verified headless and in
+  a real Chrome, not yet on the rig.
+* The consuming pipeline derives its own base/contrast labels from the photodiode and does not
+  read the log's `stim_kind`/`pair_code`; the two vocabularies are independent.
 
-## Where this sits
+## Related work
 
-Not a general stimulus platform, and not trying to be. It is a narrow drop-in whose corner
-marker and pixel geometry match one existing pipeline's decoder. For anything general, use
-these instead:
+Not a general stimulus platform. It is a narrow drop-in whose marker and pixel geometry match
+one existing pipeline's decoder. For general use:
 
-* **PsychoPy / PsychoJS** — Peirce et al. 2019, *Behav Res Methods* 51:195–203. The standard;
-  PsychoJS already does browser gratings on WebGL.
-* **Psychtoolbox-3** — Brainard 1997; Pelli 1997; Kleiner et al. 2007. The MATLAB standard.
-* **QDSpy** — Euler lab, Tübingen. The direct inspiration: per-frame uniform swaps for seamless
-  transitions, corner marker + TTL, an await-trigger state, dual-screen preview, gamma LUT.
-* **BonVision** — Lopes et al. 2021, *eLife* 10:e65541, on Bonsai. Already has the closed-loop
-  and trigger-out this would need next; look there before building it here.
-* **StimServer / FocusStack** — Muir & Kampa 2015, *Front Neuroinform* 8:85. The closest match
-  to this exact use case.
+* **PsychoPy / PsychoJS** — Peirce et al. 2019, *Behav Res Methods* 51:195–203.
+* **Psychtoolbox-3** — Brainard 1997; Pelli 1997; Kleiner et al. 2007.
+* **QDSpy** — Euler lab, Tübingen. The direct inspiration: per-frame uniform swaps, corner
+  marker + TTL, await-trigger, dual-screen preview, gamma LUT.
+* **BonVision** — Lopes et al. 2021, *eLife* 10:e65541. Has the closed-loop and trigger-out
+  this would need next.
+* **StimServer / FocusStack** — Muir & Kampa 2015, *Front Neuroinform* 8:85.
 
-Summed gratings are after **Lin, Okun, Carandini & Harris 2015**, *The Nature of Shared
-Cortical Variability*, *Neuron* 87:644–656 — gratings and plaids over a multi-site array, the
-plaid angle fixed within a session and the component pair rotated across three pairs to keep
-adaptation out of the measurement. What is borrowed is the design: summation, a
-fixed angle, a rotated pair. Their plaids were made of contrast-reversing components in the
-cat; their mouse gratings drifted, as ours do. Both forms are available here, and the 45° step
-comes from this rig's own eight directions rather than from the paper.
+Summed gratings follow the design of **Lin, Okun, Carandini & Harris 2015**, *The Nature of
+Shared Cortical Variability*, *Neuron* 87:644–656: summation, a fixed angle between components,
+and the pair rotated across presentations to limit adaptation. Their plaids used
+contrast-reversing components in cat; their mouse gratings drifted, as the default here does.
+Both forms are available. The 45° step is this rig's own eight directions, not theirs.
 
-The grating parameters (0.02 cyc/px, ~1 Hz, full contrast) follow the in-house generator and
-sit in the canonical mouse-V1 range (Niell & Stryker 2008, *J Neurosci* 28:7520–7536). The
-oblique convention is verified against **pulse2percept** (Beyeler et al. 2017). A coloured
-corner square read by a photodiode is a community method, not ours.
+Grating parameters (0.02 cyc/px, ~1 Hz, full contrast) follow the in-house generator and sit in
+the canonical mouse-V1 range (Niell & Stryker 2008, *J Neurosci* 28:7520–7536). A coloured
+corner square read by a photodiode is a community method.
 
 ## License
 
