@@ -65,24 +65,28 @@ mirrored and every oblique tuning label is wrong. Gamma LUT is not applied yet.
 
 ### Plaids
 
-Set a **plaid angle** and a second grating that many degrees away is **added** to the first,
-and their sum is shown:
+Turn on the **second grating** and the screen shows the **sum of two gratings**, added frame by
+frame:
 
 ```
-L(x,y,t) = L_mean · (1 + C · k · Σ_θ wave(2π·f·(x·cosθ + y·sinθ) + φ(t)))
+L(x,y,t) = L_mean · (1 + C · k · Σ_i wave(2π·f·(x·cos θ_i + y·sin θ_i) + φ_i(t)))
 ```
 
-Both components share the spatial frequency, the temporal frequency and the phase, so a moving
-plaid drifts coherently. `k` is what the contrast slider is taken to mean: `1` gives each
-component the set contrast, so the sum spans twice it and anything above 0.5 flattens against
-the screen's range; `0.5` keeps the pair inside the set contrast and gives each component half.
-The clamp is the display running out of range, and it is not hidden — 50 % per component is the
-highest a plaid carries with its peaks intact.
+Each grating has **its own direction** `θ_i` and **its own temporal frequency**, so each carries
+its own phase `φ_i(t)` and drifts at its own rate. They are never locked together: set opposing
+directions or different speeds and each goes its own way. Direction is on the same 0–345° scale
+as the first grating, so 0° and 180° are the same pattern drifting opposite ways.
 
-A plaid angle of 0 is *not* a plaid, it is a single grating, and nothing downstream treats it
-as one. **+ plaid trio** queues three plaids of one angle with their component pairs 30° apart
-(0/90, 30/120, 60/150 at 90°), which rotates the pair without changing the angle under test, so
-repetition does not adapt the answer.
+`k` is what the contrast slider is taken to mean: `1` gives each grating the set contrast, so the
+sum spans twice it and anything above 0.5 flattens against the screen's range; `0.5` keeps the
+pair inside the set contrast and gives each grating half. The clamp is the display running out of
+range, and it is not hidden — 50 % per grating is the highest a plaid carries with its peaks
+intact.
+
+**+ plaid trio** queues three plaids with the same angle between the gratings, the whole pair
+rotated in 45° steps (0+90, 45+135, 90+180) — the grid the single gratings already use, so a
+plaid trio lands on the same directions as a sweep. Rotating the pair leaves the angle between
+the gratings, the thing under test, fixed, so repetition does not adapt the answer.
 
 Use the **sinusoid** waveform for plaids. The binary default exists to match the baked stimulus
 videos, and two summed binary waves give a three-level chequer rather than the smooth
@@ -90,9 +94,16 @@ interference pattern the word *plaid* normally means. Binary is still presented 
 faithfully — it is simply a different stimulus.
 
 The marker is unchanged: a plaid counts as a moving or still grating to the photodiode. Which
-blocks were plaids is in the log (`plaid_angle_deg`) and in the exported protocol
-(`plaid_angle_deg`, `component_orientations_deg`, `plaid_contrast_per`), where the orientation
-always lived.
+blocks carried a second grating is in the log (`plaid_direction_deg`, `plaid_temporal_freq_hz`)
+and in the exported protocol (`plaid_direction_deg`, `plaid_temporal_freq_hz`, `plaid_angle_deg`,
+`component_directions_deg`, `component_temporal_freqs_hz`, `plaid_contrast_per`), where the first
+grating's direction always lived.
+
+**These are drifting plaids, which is an adaptation, not a reproduction.** In the source below
+the summed gratings are *contrast-reversing* — a standing pattern whose contrast oscillates —
+and are specified by orientation, not direction. Drifting components are the form that fits a
+rig whose whole stimulus set is drifting gratings. Say which one you presented; they are not the
+same stimulus.
 
 ## Corner markers
 
@@ -109,6 +120,13 @@ count. Mice are red-blind; the photodiode reads it.
 
 A pulse is 3 frames on, 3 off, at 51 fps. The constants live in `protocol.js` and are tested
 against the pipeline's.
+
+## The cockpit
+
+Every settings card folds. **Stimulus screen**, **Field zone** and **Special stimuli** start
+collapsed — they are set once — and the rest start open. Whatever is open is saved with the
+session and comes back after a reload or a crash, so a cockpit arranged for the night's work
+stays arranged.
 
 ## The sequence
 
@@ -177,11 +195,13 @@ these instead:
 * **StimServer / FocusStack** — Muir & Kampa 2015, *Front Neuroinform* 8:85. The closest match
   to this exact use case.
 
-Summed gratings are taken from **Lin, Okun, Carandini & Harris 2015**, *The Nature of Shared
+Summed gratings are after **Lin, Okun, Carandini & Harris 2015**, *The Nature of Shared
 Cortical Variability*, *Neuron* 87:644–656 — gratings and plaids over a multi-site array, the
-plaid angle fixed within a session and the component pair rotated in 30° steps across three
-pairs to keep adaptation out of the measurement. The trio button and the per-component contrast
-convention here follow that protocol.
+plaid angle fixed within a session and the component pair rotated across three pairs to keep
+adaptation out of the measurement. What is borrowed is the design: summation, a fixed angle, a
+rotated pair. What is not is the component itself — theirs are contrast-reversing and given by
+orientation, these drift and are given by direction — and the 45° step here comes from this
+rig's own eight directions, not from the paper.
 
 The grating parameters (0.02 cyc/px, ~1 Hz, full contrast) follow the in-house generator and
 sit in the canonical mouse-V1 range (Niell & Stryker 2008, *J Neurosci* 28:7520–7536). The

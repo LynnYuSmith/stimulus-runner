@@ -64,51 +64,70 @@
     return n <= 0 ? 0 : (n - 1) * MARKER.PULSE_PERIOD_S + MARKER.PULSE_WIDTH_S;
   }
 
-  /** events_labeled-style label for a block. A plaid names BOTH its components, because the
-   *  pair is the stimulus — "Moving plaid 0/90°" is not a 0° grating and must never read as one. */
-  function blockLabel(type, orientationDeg, plaidAngleDeg) {
+  /** events_labeled-style label for a block. A plaid names BOTH its gratings, because the pair
+   *  is the stimulus — "Moving plaid 0°+90°" is not a 0° grating and must never read as one. */
+  function blockLabel(type, orientationDeg, plaidDirDeg) {
     if (type === "grey") return "Grey";
     if (type === "black") return "Black";
     if (type === "blitz") return "Blitz";
     if (type === "bar") return orientationDeg == null ? "Bar sweep" : `Bar ${Number(orientationDeg)}°`;
     const kind = type === "moving" ? "Moving" : "Static";
-    const a = Number(orientationDeg), pa = Number(plaidAngleDeg) || 0;
-    if (pa > 0) return `${kind} plaid ${a}/${(a + pa) % 360}°`;
+    const a = Number(orientationDeg);
+    if (plaidDirDeg != null) return `${kind} plaid ${a}°+${Number(plaidDirDeg)}°`;
     return `${kind} ${a}°`;
   }
 
   /**
-   * Component orientations of a plaid, in degrees: the set one is given plus the plaid angle.
-   * Returns a single orientation when the angle is 0 — that is not a plaid, it is a grating,
-   * and the two must not be conflated anywhere downstream.
+   * The directions of the gratings a block is made of. Each grating has its OWN direction —
+   * there is no "base plus offset" — so a plaid is simply two of them. Returns one direction
+   * when there is no second grating: that is not a plaid, it is a grating, and the two must
+   * not be conflated anywhere downstream.
    */
-  function plaidComponents(orientationDeg, plaidAngleDeg) {
-    const a = Number(orientationDeg), pa = Number(plaidAngleDeg) || 0;
-    return pa > 0 ? [a, (a + pa) % 360] : [a];
+  function plaidComponents(directionDeg, plaidDirDeg) {
+    const a = Number(directionDeg);
+    return plaidDirDeg == null ? [a] : [a, Number(plaidDirDeg)];
+  }
+
+  /** The angle between a plaid's two gratings, 0–180°, or null when there is only one. */
+  function plaidAngle(directionDeg, plaidDirDeg) {
+    if (plaidDirDeg == null) return null;
+    const d = Math.abs(((Number(plaidDirDeg) - Number(directionDeg)) % 360 + 360) % 360);
+    return d > 180 ? 360 - d : d;
   }
 
   /**
    * Luminance at frame pixel (fx, fy) — MIRRORS the WebGL shader, so what the screen shows is
-   * node-testable. A plaid is the SUM of its components, each a grating of the same spatial and
-   * temporal frequency: `L = mean · (1 + contrast · norm · Σ component)`, clamped to the
-   * displayable range. `norm` is 1 when the contrast is per component and 0.5 when it is per
-   * plaid. The clamp is the honest part: two components at contrast 0.5 already reach the ends
-   * of the range, and anything above that is flattened by the screen, not by us.
+   * node-testable. A plaid is the SUM of its gratings at THIS frame, and each grating carries
+   * its own phase: they drift at their own rates, in their own directions, and are never locked
+   * together. `L = mean · (1 + contrast · norm · Σ grating)`, clamped to the displayable range.
+   * `norm` is 1 when the contrast is per component and 0.5 when it is per plaid.
+   *
+   * The clamp is the honest part: two gratings at contrast 0.5 already reach the ends of the
+   * range, and anything above that is flattened by the screen, not by us.
    * Keep this in sync with the shader in index.html.
    */
   function plaidLuminance(fx, fy, o) {
     o = o || {};
-    const comps = plaidComponents(o.orientationDeg, o.plaidAngleDeg);
+    const dirs = plaidComponents(o.directionDeg, o.plaidDirDeg);
+    const phases = [Number(o.phase) || 0, o.phase2 == null ? (Number(o.phase) || 0) : Number(o.phase2)];
     const square = o.waveform === "square";
     let g = 0;
-    for (const th of comps) {
-      const v = Math.sin(gratingPhaseArg(fx, fy, th, o.sf, o.phase));
+    dirs.forEach((th, i) => {
+      const v = Math.sin(gratingPhaseArg(fx, fy, th, o.sf, phases[i]));
       g += square ? (v > 0 ? 1 : -1) : v;
-    }
-    const norm = (comps.length > 1 && o.plaidNorm) ? 0.5 : 1;
+    });
+    const norm = (dirs.length > 1 && o.plaidNorm) ? 0.5 : 1;
     const mean = o.meanLum == null ? STIM.GREY_LEVEL : Number(o.meanLum);
     return Math.min(1, Math.max(0, mean * (1 + Number(o.contrast) * norm * g)));
   }
+
+  /**
+   * A grating's phase after `t` seconds at `tf` Hz, from a starting phase of 0. The phase
+   * DECREASES, matching the shader and the reference generator's drift direction. This is what
+   * makes "each grating moves on its own" testable: two gratings at different `tf` have
+   * different phases at the same frame.
+   */
+  function driftPhase(t, tf) { return -2 * Math.PI * Number(tf) * Number(t); }
 
   const isGrating = (type) => type === "moving" || type === "still";
 
@@ -162,7 +181,7 @@
       const item = {
         index: i,
         type: b.type,
-        label: blockLabel(b.type, b.orientation, b.plaidAngle),
+        label: blockLabel(b.type, b.orientation, b.plaid ? b.dir2 : null),
         orientation_deg: grating ? Number(b.orientation) : null,
         start_time_s: round3(t),
         end_time_s: round3(t + dur),
@@ -173,14 +192,19 @@
         item.spatial_freq_cpp = numOrNull(b.sf);
         item.temporal_freq = numOrNull(b.tf);
         item.contrast = numOrNull(b.contrast);
-        /* A plaid carries its second component explicitly. `orientation_deg` stays the FIRST
-           component so a consumer that knows nothing of plaids still reads a real orientation
-           rather than a meaningless average — but `plaid_angle_deg` being non-null is the
-           statement that this block was not a single grating. */
-        item.plaid_angle_deg = (Number(b.plaidAngle) || 0) || null;
-        item.component_orientations_deg = plaidComponents(b.orientation, b.plaidAngle);
-        item.plaid_contrast_per = item.plaid_angle_deg
-          ? (b.plaidNorm ? "plaid" : "component") : null;
+        /* A plaid carries its second grating explicitly. `orientation_deg` stays the FIRST
+           grating so a consumer that knows nothing of plaids still reads a real direction rather
+           than a meaningless average — but `plaid_direction_deg` being non-null is the statement
+           that this block was not a single grating. The angle between them is written out too,
+           derived rather than stored, because it is the parameter the experiment varies. */
+        const d2 = b.plaid ? numOrNull(b.dir2) : null;
+        item.plaid_direction_deg = d2;
+        item.plaid_temporal_freq_hz = b.plaid ? numOrNull(b.tf2) : null;
+        item.plaid_angle_deg = plaidAngle(b.orientation, d2);
+        item.component_directions_deg = plaidComponents(b.orientation, d2);
+        item.component_temporal_freqs_hz =
+          d2 == null ? [numOrNull(b.tf)] : [numOrNull(b.tf), numOrNull(b.tf2)];
+        item.plaid_contrast_per = d2 == null ? null : (b.plaidNorm ? "plaid" : "component");
         oris.add(Number(b.orientation));
         if (stimDur == null) stimDur = dur;
       } else if (b.type === "grey" && greyDur == null) {
@@ -235,7 +259,7 @@
   const API = {
     MARKER, STIM, pulsesFor, markerSidePx, markerTrainDuration, blockLabel,
     queueTimeline, buildProtocol, cyclesPerPixel, gratingPhaseArg,
-    plaidComponents, plaidLuminance,
+    plaidComponents, plaidAngle, plaidLuminance, driftPhase,
   };
 
   if (typeof module !== "undefined" && module.exports) module.exports = API;

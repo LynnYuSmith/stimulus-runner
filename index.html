@@ -65,6 +65,7 @@
   details.card>summary::before{content:'▸';color:var(--accent);font-size:12px;transition:.15s}
   details.card[open]>summary::before{content:'▾'}
   details.card>summary:hover{color:var(--muted)}
+  details.card:not([open])>summary{opacity:.72}
   details.card>summary .sh{font-weight:400;color:var(--faint);text-transform:none;letter-spacing:normal}
   details.card>.body{padding:0 14px 14px}
 
@@ -213,15 +214,17 @@
     </div>
 
     <!-- STIMULUS SCREEN: open the mouse's display — expanded, right under the status -->
-    <div class="card">
-      <h2>Stimulus screen</h2>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="linkbtn" id="openStim">Open stimulus window ↗</button>
-        <button class="linkbtn" id="fsHere">Fullscreen here ⤢</button>
+    <details class="card" data-fold="Stimulus screen">
+      <summary>Stimulus screen</summary>
+      <div class="body">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="linkbtn" id="openStim">Open stimulus window ↗</button>
+          <button class="linkbtn" id="fsHere">Fullscreen here ⤢</button>
+        </div>
+        <p class="hint" style="margin:8px 0 0">Drag the popup to the mouse's monitor, then it goes fullscreen.
+        No second monitor? Use “Fullscreen here”.</p>
       </div>
-      <p class="hint" style="margin:8px 0 0">Drag the popup to the mouse's monitor, then it goes fullscreen.
-      No second monitor? Use “Fullscreen here”.</p>
-    </div>
+    </details>
 
     <!-- REST STATES: grey / black always one click away, right under the status -->
     <div class="actions" style="grid-template-columns:1fr 1fr">
@@ -230,144 +233,163 @@
       <button class="big abort" id="abort" style="grid-column:1/-1">■ Abort → grey (Esc)</button>
     </div>
 
-    <div class="card">
-      <h2>Quick gratings <span class="hint">(keys 1–8)</span></h2>
-      <div class="presets" id="presets"></div>
-    </div>
+    <details class="card" data-fold="Quick gratings" open>
+      <summary>Quick gratings <span class="sh">(keys 1–8)</span></summary>
+      <div class="body">
+        <div class="presets" id="presets"></div>
+      </div>
+    </details>
 
-    <div class="card">
-      <h2>Custom grating</h2>
-      <div class="grid2">
-        <label class="f">Orientation <span class="val" id="oriVal">0°</span>
-          <input type="range" id="ori" min="0" max="345" step="15" value="0"></label>
-        <label class="f">Motion
-          <div class="seg" id="moveSeg">
-            <button data-mv="moving" class="sel">moving</button>
-            <button data-mv="still">still</button>
-          </div></label>
-        <label class="f">Waveform
-          <div class="seg" id="waveSeg">
-            <button data-wave="square" class="sel">binary</button>
-            <button data-wave="sinusoid">sinusoid</button>
-          </div></label>
-        <label class="f">Spatial freq (cyc/px) <span class="val" id="sfVal">0.020</span>
-          <input type="range" id="sf" min="0.005" max="0.100" step="0.001" value="0.02"></label>
-        <label class="f">Temporal freq (Hz) <span class="val" id="tfVal">1.0</span>
-          <input type="range" id="tf" min="0" max="8" step="0.5" value="1"></label>
-        <label class="f">Contrast <span class="val" id="ctVal">1.00</span>
-          <input type="range" id="ct" min="0" max="1" step="0.05" value="1"></label>
-        <label class="f">Plaid angle <span class="val" id="plaidVal">off</span>
-          <input type="range" id="plaid" min="0" max="165" step="15" value="0"></label>
-        <label class="f">Plaid sum
-          <div class="seg" id="plaidSeg">
-            <button data-pn="components" class="sel">per component</button>
-            <button data-pn="plaid">per plaid</button>
-          </div></label>
-        <label class="f">Duration (s)
-          <input type="number" id="dur" min="0.5" max="60" step="0.5" value="4"></label>
+    <details class="card" data-fold="Custom grating" open>
+      <summary>Custom grating</summary>
+      <div class="body">
+        <div class="grid2">
+          <label class="f">Orientation <span class="val" id="oriVal">0°</span>
+            <input type="range" id="ori" min="0" max="345" step="15" value="0"></label>
+          <label class="f">Motion
+            <div class="seg" id="moveSeg">
+              <button data-mv="moving" class="sel">moving</button>
+              <button data-mv="still">still</button>
+            </div></label>
+          <label class="f">Waveform
+            <div class="seg" id="waveSeg">
+              <button data-wave="square" class="sel">binary</button>
+              <button data-wave="sinusoid">sinusoid</button>
+            </div></label>
+          <label class="f">Spatial freq (cyc/px) <span class="val" id="sfVal">0.020</span>
+            <input type="range" id="sf" min="0.005" max="0.100" step="0.001" value="0.02"></label>
+          <label class="f">Temporal freq (Hz) <span class="val" id="tfVal">1.0</span>
+            <input type="range" id="tf" min="0" max="8" step="0.5" value="1"></label>
+          <label class="f">Contrast <span class="val" id="ctVal">1.00</span>
+            <input type="range" id="ct" min="0" max="1" step="0.05" value="1"></label>
+          <label class="f">Second grating
+            <div class="seg" id="plaidOnSeg">
+              <button data-p2="off" class="sel">off</button>
+              <button data-p2="on">plaid</button>
+            </div></label>
+          <label class="f">Its direction <span class="val" id="dir2Val">90°</span>
+            <input type="range" id="dir2" min="0" max="345" step="15" value="90"></label>
+          <label class="f">Its temporal freq (Hz) <span class="val" id="tf2Val">1.0</span>
+            <input type="range" id="tf2" min="0" max="8" step="0.5" value="1"></label>
+          <label class="f">Plaid sum
+            <div class="seg" id="plaidSeg">
+              <button data-pn="components" class="sel">per component</button>
+              <button data-pn="plaid">per plaid</button>
+            </div></label>
+          <label class="f">Duration (s)
+            <input type="number" id="dur" min="0.5" max="60" step="0.5" value="4"></label>
+        </div>
       </div>
-    </div>
+    </details>
 
-    <div class="card">
-      <h2>Field zone <span class="hint">(show the grating in a segment of the visual field)</span></h2>
-      <div class="grid2" style="margin-bottom:10px">
-        <label class="f">Columns <span class="val" id="zcolsVal">3</span>
-          <input type="range" id="zcols" min="1" max="6" step="1" value="3"></label>
-        <label class="f">Rows <span class="val" id="zrowsVal">2</span>
-          <input type="range" id="zrows" min="1" max="6" step="1" value="2"></label>
+    <details class="card" data-fold="Field zone">
+      <summary>Field zone <span class="sh">(show the grating in a segment of the visual field)</span></summary>
+      <div class="body">
+        <div class="grid2" style="margin-bottom:10px">
+          <label class="f">Columns <span class="val" id="zcolsVal">3</span>
+            <input type="range" id="zcols" min="1" max="6" step="1" value="3"></label>
+          <label class="f">Rows <span class="val" id="zrowsVal">2</span>
+            <input type="range" id="zrows" min="1" max="6" step="1" value="2"></label>
+        </div>
+        <div id="zoneGrid" style="display:grid;gap:5px;margin-bottom:10px"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="linkbtn" id="zFull">▣ Full field</button>
+          <button class="linkbtn" id="qZoneSweep">+ zone sweep (all cells)</button>
+        </div>
+        <p class="hint" style="margin:8px 0 0">Pick a cell → the grating shows only there, rest of the field
+          stays grey. Same grating in every cell = a receptive-field map. “Full field” clears it.</p>
       </div>
-      <div id="zoneGrid" style="display:grid;gap:5px;margin-bottom:10px"></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="linkbtn" id="zFull">▣ Full field</button>
-        <button class="linkbtn" id="qZoneSweep">+ zone sweep (all cells)</button>
-      </div>
-      <p class="hint" style="margin:8px 0 0">Pick a cell → the grating shows only there, rest of the field
-        stays grey. Same grating in every cell = a receptive-field map. “Full field” clears it.</p>
-    </div>
+    </details>
 
-    <div class="card">
-      <h2>Special stimuli <span class="hint">(blitz flash · bar sweep — both configurable)</span></h2>
-      <div class="grid2">
-        <label class="f">Blitz luminance <span class="val" id="blLumVal">1.00</span>
-          <input type="range" id="blLum" min="0" max="1" step="0.05" value="1"></label>
-        <label class="f">Blitz duration (s)
-          <input type="number" id="blDur" min="0.02" max="5" step="0.02" value="0.1"></label>
+    <details class="card" data-fold="Special stimuli">
+      <summary>Special stimuli <span class="sh">(blitz flash · bar sweep — both configurable)</span></summary>
+      <div class="body">
+        <div class="grid2">
+          <label class="f">Blitz luminance <span class="val" id="blLumVal">1.00</span>
+            <input type="range" id="blLum" min="0" max="1" step="0.05" value="1"></label>
+          <label class="f">Blitz duration (s)
+            <input type="number" id="blDur" min="0.02" max="5" step="0.02" value="0.1"></label>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 12px">
+          <button class="linkbtn" id="blNow">⚡ Flash now</button>
+          <button class="linkbtn" id="qBlitz">+ blitz</button>
+        </div>
+        <div class="grid2" style="border-top:1px solid var(--border);padding-top:10px">
+          <label class="f">Bar direction <span class="val" id="barDirVal">0°</span>
+            <input type="range" id="barDir" min="0" max="315" step="45" value="0"></label>
+          <label class="f">Bar width (field frac) <span class="val" id="barWVal">0.12</span>
+            <input type="range" id="barW" min="0.02" max="0.5" step="0.01" value="0.12"></label>
+          <label class="f">Bar luminance <span class="val" id="barLumVal">1.00</span>
+            <input type="range" id="barLumR" min="0" max="1" step="0.05" value="1"></label>
+          <label class="f">Sweep duration (s)
+            <input type="number" id="barDur" min="0.5" max="30" step="0.5" value="4"></label>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+          <button class="linkbtn" id="barNow">→ Sweep now</button>
+          <button class="linkbtn" id="qBar">+ bar sweep</button>
+          <button class="linkbtn" id="qBar4">+ 4-dir sweep</button>
+        </div>
+        <p class="hint" style="margin:8px 0 0">Blitz honours the field zone (flash only in the selected cell).
+          Bar sweeps the whole field in the chosen direction over its duration.</p>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 12px">
-        <button class="linkbtn" id="blNow">⚡ Flash now</button>
-        <button class="linkbtn" id="qBlitz">+ blitz</button>
-      </div>
-      <div class="grid2" style="border-top:1px solid var(--border);padding-top:10px">
-        <label class="f">Bar direction <span class="val" id="barDirVal">0°</span>
-          <input type="range" id="barDir" min="0" max="315" step="45" value="0"></label>
-        <label class="f">Bar width (field frac) <span class="val" id="barWVal">0.12</span>
-          <input type="range" id="barW" min="0.02" max="0.5" step="0.01" value="0.12"></label>
-        <label class="f">Bar luminance <span class="val" id="barLumVal">1.00</span>
-          <input type="range" id="barLumR" min="0" max="1" step="0.05" value="1"></label>
-        <label class="f">Sweep duration (s)
-          <input type="number" id="barDur" min="0.5" max="30" step="0.5" value="4"></label>
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-        <button class="linkbtn" id="barNow">→ Sweep now</button>
-        <button class="linkbtn" id="qBar">+ bar sweep</button>
-        <button class="linkbtn" id="qBar4">+ 4-dir sweep</button>
-      </div>
-      <p class="hint" style="margin:8px 0 0">Blitz honours the field zone (flash only in the selected cell).
-        Bar sweeps the whole field in the chosen direction over its duration.</p>
-    </div>
+    </details>
 
     <!-- primary action: present the current grating (rest states live up top, under the status) -->
     <button class="big present" id="present" style="width:100%">▶ Present grating  <span class="hint" style="color:#0a3">(Space)</span></button>
 
-    <div class="card">
-      <h2>Sequence <span class="hint">(<span id="qCount">0</span> blocks · <span id="qDur">0 s</span> total — run in order, each for its own duration)</span></h2>
-      <label class="f" style="margin-bottom:8px">Rest / grey-gap duration (s) <span class="val" id="gbVal">4.0</span>
-        <input type="range" id="greyBetween" min="0" max="60" step="0.5" value="4"></label>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-        <button class="linkbtn" id="qAdd">+ grating</button>
-        <button class="linkbtn" id="qPlaidTrio">+ plaid trio</button>
-        <button class="linkbtn" id="qGrey">+ grey</button>
-        <button class="linkbtn" id="qBlack">+ black</button>
-        <button class="linkbtn" id="qSweep">+ 0–315 sweep</button>
-        <button class="linkbtn" id="qClear">Clear</button>
-      </div>
-      <div class="logscroll" style="max-height:150px">
-        <table><thead><tr><th>#</th><th>type</th><th>ori</th><th>dur</th><th></th></tr></thead>
-          <tbody id="queueBody"></tbody></table>
-      </div>
-      <button class="big grey" id="qRun" style="width:100%;margin-top:10px">▶ Run queue</button>
-      <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:10px">
-        <div class="hint" style="margin-bottom:6px">Saved protocols (files in <code>protocols/</code>)</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <input type="text" id="qName" placeholder="protocol name" autocomplete="off"
-                 style="flex:1 1 120px;min-width:100px;padding:5px 8px;border:1px solid var(--border);
-                        border-radius:6px;background:var(--panel-2);color:var(--ink);font-size:12px">
-          <button class="linkbtn" id="qSave">★ Save</button>
-          <select id="qFav" style="flex:1 1 140px;min-width:120px;padding:5px 8px;border:1px solid var(--border);
-                        border-radius:6px;background:var(--panel-2);color:var(--ink);font-size:12px"></select>
-          <button class="linkbtn" id="qLoad">Load</button>
-          <button class="linkbtn" id="qFavDel">Delete</button>
+    <details class="card" data-fold="Sequence" open>
+      <summary>Sequence <span class="sh">(<span id="qCount">0</span> blocks · <span id="qDur">0 s</span> total — run in order, each for its own duration)</span></summary>
+      <div class="body">
+        <label class="f" style="margin-bottom:8px">Rest / grey-gap duration (s) <span class="val" id="gbVal">4.0</span>
+          <input type="range" id="greyBetween" min="0" max="60" step="0.5" value="4"></label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <button class="linkbtn" id="qAdd">+ grating</button>
+          <button class="linkbtn" id="qPlaidTrio">+ plaid trio</button>
+          <button class="linkbtn" id="qGrey">+ grey</button>
+          <button class="linkbtn" id="qBlack">+ black</button>
+          <button class="linkbtn" id="qSweep">+ 0–315 sweep</button>
+          <button class="linkbtn" id="qClear">Clear</button>
+        </div>
+        <div class="logscroll" style="max-height:150px">
+          <table><thead><tr><th>#</th><th>type</th><th>ori</th><th>dur</th><th></th></tr></thead>
+            <tbody id="queueBody"></tbody></table>
+        </div>
+        <button class="big grey" id="qRun" style="width:100%;margin-top:10px">▶ Run queue</button>
+        <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:10px">
+          <div class="hint" style="margin-bottom:6px">Saved protocols (files in <code>protocols/</code>)</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <input type="text" id="qName" placeholder="protocol name" autocomplete="off"
+                   style="flex:1 1 120px;min-width:100px;padding:5px 8px;border:1px solid var(--border);
+                          border-radius:6px;background:var(--panel-2);color:var(--ink);font-size:12px">
+            <button class="linkbtn" id="qSave">★ Save</button>
+            <select id="qFav" style="flex:1 1 140px;min-width:120px;padding:5px 8px;border:1px solid var(--border);
+                          border-radius:6px;background:var(--panel-2);color:var(--ink);font-size:12px"></select>
+            <button class="linkbtn" id="qLoad">Load</button>
+            <button class="linkbtn" id="qFavDel">Delete</button>
+          </div>
         </div>
       </div>
-    </div>
+    </details>
 
-    <div class="card" id="logCard">
-      <h2>Trial log</h2>
-      <div class="logtools">
-        <button id="expProto">Export protocol (JSON)</button>
-        <button id="expCsv">Export CSV</button>
-        <button id="expJson">Export JSON</button>
-        <button id="clearLog">Clear</button>
-        <span id="logSaveState" title="Where the log is being written on disk">not saving</span>
+    <details class="card" data-fold="Trial log" id="logCard" open>
+      <summary>Trial log</summary>
+      <div class="body">
+        <div class="logtools">
+          <button id="expProto">Export protocol (JSON)</button>
+          <button id="expCsv">Export CSV</button>
+          <button id="expJson">Export JSON</button>
+          <button id="clearLog">Clear</button>
+          <span id="logSaveState" title="Where the log is being written on disk">not saving</span>
+        </div>
+        <div class="logscroll">
+          <table>
+            <thead><tr><th>#</th><th>wall-clock</th><th>type</th><th>ori</th><th>dur</th>
+              <th>SF</th><th>TF</th><th>C</th><th>2nd grating</th></tr></thead>
+            <tbody id="logBody"></tbody>
+          </table>
+        </div>
       </div>
-      <div class="logscroll">
-        <table>
-          <thead><tr><th>#</th><th>wall-clock</th><th>type</th><th>ori</th><th>dur</th>
-            <th>SF</th><th>TF</th><th>C</th><th>plaid</th></tr></thead>
-          <tbody id="logBody"></tbody>
-        </table>
-      </div>
-    </div>
+    </details>
 
     <!-- collapsed by default: detailed screen / marker settings -->
     <details class="card">
@@ -447,20 +469,26 @@
     <ul>
       <li><b>Quick gratings</b> present at a preset orientation but honour the <b>moving / still</b> toggle.</li>
       <li><b>Custom grating</b>: orientation, motion, waveform, spatial/temporal frequency, contrast, duration.</li>
-      <li><b>Plaid angle</b> adds a <b>second grating on top of the first</b>, that many degrees away, and shows
-        their <b>sum</b> — <i>off</i> is a plain single grating. <b>Plaid sum</b> says what the contrast slider
-        means: <b>per component</b> gives each grating that contrast (so the sum reaches twice it, and above
-        0.5 the peaks flatten against the screen's range), <b>per plaid</b> keeps the pair within the contrast
-        set and gives each grating half. <b>+ plaid trio</b> queues three plaids of the same angle with their
-        component pairs 30° apart, which is how they are presented in Lin, Okun, Carandini &amp; Harris (2015)
-        — rotating the pair without changing the angle, so repetition does not adapt the answer.
-        <b>Set the waveform to sinusoid</b> for a plaid: our default binary wave is there to match the baked
+      <li><b>Second grating</b> turns the grating into a <b>plaid</b>: a second grating with <b>its own
+        direction</b> and <b>its own temporal frequency</b>, drifting on its own, and every frame the screen
+        shows the <b>sum of the two</b>. The two are not locked together — set them to different speeds or
+        opposing directions and each still goes its own way. Direction is on the same 0–345° scale as the
+        first grating, so 0° and 180° are the same pattern drifting opposite ways.</li>
+      <li><b>Plaid sum</b> says what the contrast slider means: <b>per component</b> gives each grating that
+        contrast (so the sum reaches twice it, and above 0.5 the peaks flatten against the screen's range),
+        <b>per plaid</b> keeps the pair within the contrast set and gives each grating half.</li>
+      <li><b>+ plaid trio</b> queues three plaids with the same angle between the gratings, the whole pair
+        rotated in <b>45°</b> steps (0+90, 45+135, 90+180) — the grid our single gratings already use. After
+        Lin, Okun, Carandini &amp; Harris (2015): rotating the pair without changing the angle, so repetition
+        does not adapt the answer.</li>
+      <li><b>Set the waveform to sinusoid</b> for a plaid: our default binary wave is there to match the baked
         stimulus videos, and summing two binary waves gives a three-level chequer rather than the smooth
         interference pattern a plaid is normally taken to mean. Binary still works and is still recorded
         faithfully — it is simply a different stimulus from the one the literature calls a plaid.</li>
       <li>The marker still counts <b>3 for moving / 2 for still</b>: a plaid is a grating as far as the
-        photodiode is concerned. Which block was a plaid is in the log (<code>plaid_angle_deg</code>) and in
-        the exported protocol, as the orientation always was.</li>
+        photodiode is concerned. The second grating is in the log
+        (<code>plaid_direction_deg</code>, <code>plaid_temporal_freq_hz</code>) and in the exported protocol,
+        where the first grating's direction always was.</li>
       <li><b>Click any number</b> next to a slider to type an exact value.</li>
     </ul>
 
@@ -549,6 +577,7 @@ function createRenderer(canvas){
     uniform float uComp2;      // 1 = add the second component (a plaid), 0 = one grating
     uniform float uNorm;       // amplitude the sum is scaled by: 1 = per component, 0.5 = per plaid
     uniform float uPhase;      // radians
+    uniform float uPhase2;     // the second component's OWN phase — it drifts independently
     uniform float uContrast;   // 0..1 (0 = flat field at uMeanLum)
     uniform float uMeanLum;    // 0..1 (grey level, or 0 for black)
     uniform float uPixelate;   // 1 = quantize to frame pixels (match the video grid)
@@ -566,8 +595,8 @@ function createRenderer(canvas){
     uniform float uPhiCos;     // sweep direction cos
     uniform float uPhiSin;     // sweep direction sin
     uniform float uBarLum;     // bar luminance (0..1)
-    float component(float d){
-      float g = sin(6.2831853*uSF*d + uPhase);
+    float component(float d, float ph){
+      float g = sin(6.2831853*uSF*d + ph);
       return (uWaveform > 0.5) ? ((g > 0.0) ? 1.0 : -1.0) : g;   // binary square wave = our videos
     }
     void main(){
@@ -607,8 +636,12 @@ function createRenderer(canvas){
       // two are never composited or masked, they add, and the clamp at the end is the screen
       // running out of range — which is why 50 % is the highest component contrast that a
       // plaid can carry without the peaks flattening.
-      float g = component(fx*cos(uTheta)  - fy*sin(uTheta));
-      if(uComp2 > 0.5) g += component(fx*cos(uTheta2) - fy*sin(uTheta2));
+      // Each component carries its own phase, so each drifts at its own rate and in its own
+      // direction, and what the screen shows is their sum AT THIS FRAME. Sharing one phase
+      // would lock the two together and translate the whole pattern rigidly — a different
+      // stimulus, and not the one a moving plaid is meant to be.
+      float g = component(fx*cos(uTheta)  - fy*sin(uTheta),  uPhase);
+      if(uComp2 > 0.5) g += component(fx*cos(uTheta2) - fy*sin(uTheta2), uPhase2);
       float L = clamp(uMeanLum*(1.0 + uContrast*uNorm*g), 0.0, 1.0);
       gl_FragColor = vec4(L, L, L, 1.0);
     }`;
@@ -625,7 +658,7 @@ function createRenderer(canvas){
   const U = n => gl.getUniformLocation(prog,n);
   const u = {res:U('uRes'),outPos:U('uOutPos'),outSize:U('uOutSize'),frame:U('uFrame'),
              sf:U('uSF'),theta:U('uTheta'),phase:U('uPhase'),ct:U('uContrast'),lum:U('uMeanLum'),
-             theta2:U('uTheta2'),comp2:U('uComp2'),norm:U('uNorm'),
+             theta2:U('uTheta2'),comp2:U('uComp2'),norm:U('uNorm'),phase2:U('uPhase2'),
              pix:U('uPixelate'),wave:U('uWaveform'),mk:U('uMarker'),mkrgb:U('uMarkerRGB'),mkside:U('uMarkerSide'),corner:U('uCorner'),
              apPos:U('uApPos'),apSize:U('uApSize'),
              restLum:U('uRestLum'),mode:U('uMode'),barCenter:U('uBarCenter'),barHalf:U('uBarHalf'),
@@ -633,7 +666,8 @@ function createRenderer(canvas){
 
   const st = {
     contrast:0, moving:false, theta:0, sf:_S.SPATIAL_FREQ_CPP, tf:1, phase:0,
-    plaidAngle:0, plaidNorm:false,      // 0 = one grating; else the angle to the second component
+    plaid:false, dir2:90, plaidNorm:false,   // a SECOND grating with its own direction, summed in
+    phase2:0, tf2:1,                         // and its own phase and drift rate
     greyLevel:_S.GREY_LEVEL, meanLum:_S.GREY_LEVEL,      // current background mean (grey or 0=black)
     frameW:_S.FRAME_W, frameH:_S.FRAME_H, pixelate:false, waveform:'square',   // binary = our videos
     ratio:_M.RESERVE_RATIO, corner:_M.CORNER,
@@ -673,7 +707,10 @@ function createRenderer(canvas){
     const dt = (now-last)/1000; last=now;
     // phase DECREASES so the grating drifts in the reference generator's direction (with the
     // y-flip above, +phase would drift the opposite way — verified vs pulse2percept).
-    if(st.moving && st.contrast>0 && !st.frozen) st.phase -= 2*Math.PI*st.tf*dt;  // frozen = paused mid-sequence
+    if(st.moving && st.contrast>0 && !st.frozen){
+      st.phase  -= 2*Math.PI*st.tf*dt;                 // frozen = paused mid-sequence
+      st.phase2 -= 2*Math.PI*st.tf2*dt;                // its OWN rate: a negative tf2 drifts the other way
+    }
 
     if(st.mode==='bar'){                                  // advance the sweeping bar across the field
       const t = (now - st.barT0)/1000;
@@ -706,9 +743,10 @@ function createRenderer(canvas){
     gl.uniform1f(u.phase, st.phase);
     gl.uniform1f(u.ct, st.contrast);
     gl.uniform1f(u.lum, st.meanLum);
-    gl.uniform1f(u.theta2, (st.theta + st.plaidAngle)*Math.PI/180);
-    gl.uniform1f(u.comp2, st.plaidAngle > 0 ? 1 : 0);
-    gl.uniform1f(u.norm, (st.plaidAngle > 0 && st.plaidNorm) ? 0.5 : 1);
+    gl.uniform1f(u.theta2, st.dir2*Math.PI/180);
+    gl.uniform1f(u.comp2, st.plaid ? 1 : 0);
+    gl.uniform1f(u.phase2, st.phase2);
+    gl.uniform1f(u.norm, (st.plaid && st.plaidNorm) ? 0.5 : 1);
     gl.uniform1f(u.pix, st.pixelate?1:0);
     gl.uniform1f(u.wave, st.waveform==='square'?1:0);
     gl.uniform1i(u.mk, marker);
@@ -731,7 +769,10 @@ function createRenderer(canvas){
     st.mode = 'grating';
     st.theta = tr.orientation; if(tr.sf!=null) st.sf = tr.sf; st.tf = tr.tf;
     st.contrast = tr.contrast; st.moving = tr.moving; st.phase = 0;
-    st.plaidAngle = +tr.plaidAngle || 0; st.plaidNorm = !!tr.plaidNorm;
+    st.plaid = !!tr.plaid; st.plaidNorm = !!tr.plaidNorm;
+    st.dir2 = (tr.dir2 == null) ? tr.orientation : +tr.dir2;   // the second grating's OWN direction
+    st.tf2  = (tr.tf2  == null) ? tr.tf          : +tr.tf2;    // and its own drift rate
+    st.phase2 = 0;
     st.meanLum = st.greyLevel;                          // grating oscillates around grey
     st.zone = tr.zone || null;                          // per-trial aperture (absent → full field)
     // the contrast half of a back-to-back pair gets its own count (4), so the photodiode
@@ -740,13 +781,13 @@ function createRenderer(canvas){
     st.markerOnset = performance.now();
   }
   function flash(tr){                       // blitz: a flat-field luminance flash (optionally in a zone)
-    st.mode = 'grating'; st.contrast = 0; st.moving = false; st.plaidAngle = 0;
+    st.mode = 'grating'; st.contrast = 0; st.moving = false; st.plaid = false;
     st.meanLum = (tr && tr.flashLum!=null) ? tr.flashLum : 1.0;   // default full white flash
     st.zone = (tr && tr.zone) || null;
     st.markerCount = 1; st.markerOnset = performance.now();       // single onset pulse
   }
   function bar(tr){                          // bar sweep: a solid bar drifting across the field
-    st.mode = 'bar'; st.contrast = 0; st.moving = false; st.plaidAngle = 0;
+    st.mode = 'bar'; st.contrast = 0; st.moving = false; st.plaid = false;
     st.barPhi  = (tr && tr.direction!=null) ? tr.direction : 0;   // sweep direction, degrees
     st.barHalf = ((tr && tr.width!=null) ? tr.width : 0.12) / 2;  // width as a fraction of the field
     st.barLum  = (tr && tr.barLum!=null) ? tr.barLum : 1.0;
@@ -846,7 +887,9 @@ if(ROLE === 'stim'){
       tf:+document.getElementById('tf').value,
       contrast:+document.getElementById('ct').value,
       duration:+document.getElementById('dur').value,
-      plaidAngle:+document.getElementById('plaid').value,          // 0 = a single grating
+      plaid: document.querySelector('#plaidOnSeg .sel').dataset.p2==='on',
+      dir2:+document.getElementById('dir2').value,                 // the second grating's own direction
+      tf2:+document.getElementById('tf2').value,                   // and its own drift rate
       plaidNorm: document.querySelector('#plaidSeg .sel').dataset.pn==='plaid',
       moving: document.querySelector('#moveSeg .sel').dataset.mv==='moving',
       zone: currentZone(),                         // visible field segment (null = full field)
@@ -941,9 +984,10 @@ if(ROLE === 'stim'){
   };
   bind('ori','oriVal',x=>x+'°'); bind('sf','sfVal',x=>ean(x)); bind('tf','tfVal',x=>(+x).toFixed(1));
   bind('ct','ctVal',x=>(+x).toFixed(2));
-  bind('plaid','plaidVal',x=>+x>0 ? x+'\u00b0' : 'off');   // 0 is not a 0\u00b0 plaid, it is no plaid
-  document.querySelectorAll('#plaidSeg button').forEach(b=>b.onclick=()=>{
-    document.querySelectorAll('#plaidSeg button').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); });
+  bind('dir2','dir2Val',x=>x+'\u00b0'); bind('tf2','tf2Val',x=>(+x).toFixed(1));
+  document.querySelectorAll('#plaidSeg button, #plaidOnSeg button').forEach(b=>b.onclick=()=>{
+    const seg = b.parentElement;
+    seg.querySelectorAll('button').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); });
   bind('greyBetween','gbVal',x=>(+x).toFixed(1));
   function ean(x){ return (+x).toFixed(3); }
   document.querySelectorAll('#moveSeg button').forEach(b=>b.onclick=()=>{
@@ -1112,7 +1156,7 @@ if(ROLE === 'stim'){
   const toWire = r => ({ n:r.n, wallclock:r.wall, unix_ms:r.ms, type:r.type,
     direction_deg:r.ori ?? null, orientation_deg:r.ori ?? null, duration_s:r.dur ?? null,
     spatial_freq_cpd:r.sf ?? null, temporal_freq_hz:r.tf ?? null, contrast:r.contrast ?? null, role:r.role||'',
-    plaid_angle_deg:r.plaid ?? null });
+    plaid_direction_deg:r.plaidDir ?? null, plaid_temporal_freq_hz:r.plaidTf ?? null });
   function persist(batch){
     try{
       const seq = ++saveSeq;
@@ -1152,7 +1196,7 @@ if(ROLE === 'stim'){
   const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const num=v=>{ const n=+v; return Number.isFinite(n)?n:null; };   // coerce; non-numbers -> dash
   function logEntry({type, orientation=null, duration=null, sf=null, tf=null, contrast=null, role=null,
-                     plaidAngle=null}){
+                     plaidDir=null, plaidTf=null}){
     const now=new Date();
     /* ISO 8601 in LOCAL time, with the date. The old form was time-of-day only, so a session
        running past midnight produced timestamps that sort wrongly and cannot be placed on a
@@ -1171,7 +1215,8 @@ if(ROLE === 'stim'){
       closedPrev = true;
     }
     const row={n:++logSeq, wall, type, ori:orientation, dur:duration, sf, tf, contrast, ms:now.getTime(),
-               role: role||'', plaid: (+plaidAngle||0) || null};
+               role: role||'', plaidDir: plaidDir==null ? null : +plaidDir,
+               plaidTf: plaidTf==null ? null : +plaidTf};
     rows.push(row);
     /* `prev` goes along whenever its duration was just filled in above, so the copy on disk
        carries the closed row rather than the open one it was first written as. */
@@ -1181,12 +1226,13 @@ if(ROLE === 'stim'){
     el.innerHTML=`<td>${row.n}</td><td>${esc(wall)}</td><td class="type-${esc(type)}">${esc(type)}</td>
       <td>${g(orientation,v=>v+'°')}</td><td>${g(duration,v=>v+'s')}</td><td>${g(sf,v=>v.toFixed(3))}</td>
       <td>${g(tf,v=>v.toFixed(1))}</td><td>${g(contrast,v=>v.toFixed(2))}</td>
-      <td>${row.plaid ? esc(orientation+'+'+(orientation+row.plaid)+'\u00b0') : '\u2014'}</td>`;
+      <td>${row.plaidDir==null ? '\u2014' : esc(row.plaidDir+'\u00b0 @'+row.plaidTf+'Hz')}</td>`;
     logBody.appendChild(el);                              // oldest on top, newest at the bottom
     const sc = logBody.closest('.logscroll'); if(sc) sc.scrollTop = sc.scrollHeight;   // keep newest in view
   }
   function logTrial(tr){ logEntry({type:tr.type, orientation:tr.orientation, duration:tr.duration,
-                                   sf:tr.sf, tf:tr.tf, contrast:tr.contrast, plaidAngle:tr.plaidAngle,
+                                   sf:tr.sf, tf:tr.tf, contrast:tr.contrast,
+                                   plaidDir: tr.plaid ? tr.dir2 : null, plaidTf: tr.plaid ? tr.tf2 : null,
                                    role: tr.contrastHalf ? 'contrast' : (tr.type==='moving'||tr.type==='still') ? 'grating' : null}); }
   /* Clear = a session boundary, so it must clear everything that carries across one.
      Before, it emptied `rows` only: `logSeq` kept counting and `playedEvents` kept growing, so
@@ -1221,8 +1267,9 @@ if(ROLE === 'stim'){
        fold 225 into 45 by accident. orientation_deg is kept alongside it, unchanged, so
        anything already reading that name keeps working. */
     const head='n,wallclock,unix_ms,type,direction_deg,orientation_deg,duration_s,'
-      +'spatial_freq_cpd,temporal_freq_hz,contrast,role,plaid_angle_deg';
-    const body=rows.map(r=>[r.n,r.wall,r.ms,r.type,r.ori,r.ori,r.dur,r.sf,r.tf,r.contrast,r.role||'',r.plaid??'']
+      +'spatial_freq_cpd,temporal_freq_hz,contrast,role,plaid_direction_deg,plaid_temporal_freq_hz';
+    const body=rows.map(r=>[r.n,r.wall,r.ms,r.type,r.ori,r.ori,r.dur,r.sf,r.tf,r.contrast,r.role||'',
+                           r.plaidDir??'',r.plaidTf??'']
       .join(',')).join('\n');
     download('stimlog.csv', head+'\n'+body, 'text/csv');
   });
@@ -1252,7 +1299,8 @@ if(ROLE === 'stim'){
   function openBlock(type, tr){
     curBlock = { type, orientation: tr?tr.orientation:null, sf: tr?tr.sf:null,
                  tf: tr?tr.tf:null, contrast: tr?tr.contrast:null,
-                 plaidAngle: tr ? (+tr.plaidAngle||0) : 0, plaidNorm: tr ? !!tr.plaidNorm : false,
+                 plaid: tr ? !!tr.plaid : false, dir2: tr ? +tr.dir2 : null,
+                 tf2: tr ? +tr.tf2 : null, plaidNorm: tr ? !!tr.plaidNorm : false,
                  startMs: performance.now() };
   }
   function snapshotBlock(){
@@ -1261,7 +1309,8 @@ if(ROLE === 'stim'){
     if(dur <= 0.02) return null;
     return { type:curBlock.type, orientation:curBlock.orientation, sf:curBlock.sf,
              tf:curBlock.tf, contrast:curBlock.contrast, duration_s:dur,
-             plaidAngle:curBlock.plaidAngle, plaidNorm:curBlock.plaidNorm };
+             plaid:curBlock.plaid, dir2:curBlock.dir2, tf2:curBlock.tf2,
+             plaidNorm:curBlock.plaidNorm };
   }
   /* Grey IS shown on the screen, so it belongs in the record and is kept. But a grey block
      measures wall time from when it opened, so a runner left open between recordings ends up
@@ -1319,9 +1368,8 @@ if(ROLE === 'stim'){
       const z = it.zone;
       const ztxt = z ? ` <span class="hint">▦${z.col+1},${z.row+1}</span>` : '';
       let oriCell = '—';
-      const pa = num(it.plaidAngle);
       if(isGrating && ori!=null)
-        oriCell = (pa ? ori+'+'+(ori+pa)+'°' : ori+'°')+ztxt;
+        oriCell = (it.plaid ? ori+'°+'+num(it.dir2)+'°' : ori+'°')+ztxt;
       else if(it.type==='bar') oriCell = (dir!=null?dir:0)+'° →';
       else if(it.type==='blitz') oriCell = '⚡'+ztxt;
       row.innerHTML = `<td class="qhandle" title="drag to reorder">⠿ <span class="qnum">${i+1}</span></td>`+
@@ -1411,7 +1459,7 @@ if(ROLE === 'stim'){
   function addToQueue(tr){
     pushBlock({ type:tr.type, orientation:tr.orientation, sf:tr.sf, tf:tr.tf,
                 contrast:tr.contrast, duration:tr.duration, moving:tr.moving, zone:tr.zone||null,
-                plaidAngle:+tr.plaidAngle||0, plaidNorm:!!tr.plaidNorm });
+                plaid:!!tr.plaid, dir2:+tr.dir2, tf2:+tr.tf2, plaidNorm:!!tr.plaidNorm });
   }
   function addBlock(type){                        // a rest block (grey/black) of the rest-slider duration
     pushBlock({ type, orientation:null, duration:(+greyBetweenEl.value||0) });
@@ -1481,19 +1529,20 @@ if(ROLE === 'stim'){
       addToQueue({...base, orientation:o, moving:true, type:'moving'});
     });
   };
-  /* Three plaids of the SAME plaid angle, their component pairs 30° apart (0/90, 30/120, 60/150
-     at 90°). Three rather than one because a single pair shown over and over adapts the very
-     neurons it is meant to measure; rotating the pair leaves the plaid angle — the thing under
-     test — fixed. Lin, Okun, Carandini & Harris 2015 present their plaids this way. Bases are
-     counted from whatever orientation the form is set to, so the trio can be placed anywhere. */
+  /* Three plaids with the SAME angle between their two gratings, the whole pair rotated in 45°
+     steps (0+90, 45+135, 90+180 for a pair 90° apart). Three rather than one because a single
+     pair shown over and over adapts the very neurons it is meant to measure; rotating the pair
+     leaves the angle between the gratings — the thing under test — fixed. Lin, Okun, Carandini
+     & Harris 2015 present their plaids this way; the step is 45° here because that is the grid
+     our single gratings already use, so a plaid trio lands on the same directions as a sweep.
+     Both directions are taken from the form, so the trio can be placed anywhere. */
   document.getElementById('qPlaidTrio').onclick = ()=>{
     const base = formTrial();
-    const angle = base.plaidAngle || 90;           // a trio of single gratings is just a sweep
     const gap = +greyBetweenEl.value||0;
-    [0,30,60].forEach((d,i) => {
+    [0,45,90].forEach((d,i) => {
       if(i>0 && gap>0) addBlock('grey');
-      addToQueue({...base, orientation:(base.orientation+d)%360, plaidAngle:angle,
-                  moving:true, type:'moving'});
+      addToQueue({...base, orientation:(base.orientation+d)%360, dir2:(base.dir2+d)%360,
+                  plaid:true, moving:true, type:'moving'});
     });
   };
   /* receptive-field sweep: the SAME grating shown in every cell of the grid in turn (only the
@@ -1588,10 +1637,16 @@ if(ROLE === 'stim'){
      One thing is never restored: `running`. After a crash the queue stands at its position,
      paused, and the operator says go. A queue that resumed playing by itself the moment a
      page loaded would be a stimulus nobody asked for. */
-  const FORM_IDS = ['ori','sf','tf','ct','dur','greyBetween','grey','frameW','frameH','outW','outH',
-                    'ratio','corner','zcols','zrows','blLum','barLumR','barDir','barW'];
+  const FORM_IDS = ['ori','sf','tf','ct','dir2','tf2','dur','greyBetween','grey','frameW','frameH',
+                    'outW','outH','ratio','corner','zcols','zrows','blLum','barLumR','barDir','barW'];
   const CHECK_IDS = ['pixelate','fillScreen'];
   const segSel = id => { const b=document.querySelector('#'+id+' .sel'); return b ? {...b.dataset} : null; };
+  /* Which cards are folded open. An operator who collapses everything but the sequence has
+     arranged the cockpit for the night's work, and a reload must not undo that. */
+  const foldCards = () => document.querySelectorAll('details.card[data-fold]');
+  function foldState(){
+    const out = {}; foldCards().forEach(d=>{ out[d.dataset.fold] = d.open; }); return out;
+  }
   function sessionState(){
     const form = {};
     FORM_IDS.forEach(id=>{ const el=document.getElementById(id); if(el) form[id]=el.value; });
@@ -1601,6 +1656,8 @@ if(ROLE === 'stim'){
       session_started: sessionStartedAt.toISOString(),
       queue: queue.map(it=>({...it})),
       form, moveSeg: segSel('moveSeg'), waveSeg: segSel('waveSeg'), plaidSeg: segSel('plaidSeg'),
+      plaidOnSeg: segSel('plaidOnSeg'),
+      folds: foldState(),
       zone: zoneSel ? {...zoneSel} : null,
       run: { runIdx, paused, was_running: running, next_block: running ? Math.max(0, runIdx - (paused?0:1)) : runIdx },
       log: { n: logSeq, rows: rows.length },
@@ -1630,7 +1687,9 @@ if(ROLE === 'stim'){
   const _renderQueue = renderQueue; renderQueue = function(){ _renderQueue(); saveSession(); };
   const _setState = setState; setState = function(a,b,c){ _setState(a,b,c); saveSession(); };
   [...FORM_IDS, ...CHECK_IDS].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener('input', saveSession); });
-  document.querySelectorAll('#moveSeg button, #waveSeg button, #plaidSeg button').forEach(b=>b.addEventListener('click', saveSession));
+  document.querySelectorAll('#moveSeg button, #waveSeg button, #plaidSeg button, #plaidOnSeg button')
+    .forEach(b=>b.addEventListener('click', saveSession));
+  foldCards().forEach(d=>d.addEventListener('toggle', saveSession));
   window.addEventListener('pagehide', ()=>{ sessDirty = true; flushSession(); });
 
   function applySession(st){
@@ -1643,6 +1702,8 @@ if(ROLE === 'stim'){
     if(st.moveSeg) pick('moveSeg','mv',st.moveSeg.mv);
     if(st.waveSeg) pick('waveSeg','wave',st.waveSeg.wave);
     if(st.plaidSeg) pick('plaidSeg','pn',st.plaidSeg.pn);
+    if(st.plaidOnSeg) pick('plaidOnSeg','p2',st.plaidOnSeg.p2);
+    if(st.folds) foldCards().forEach(d=>{ const v=st.folds[d.dataset.fold]; if(v!=null) d.open = !!v; });
     pushCfg();
     zoneSel = st.zone ? {col:+st.zone.col, row:+st.zone.row} : null; renderZoneGrid(); previewZone();
     queue.length = 0; (st.queue||[]).forEach(it=>queue.push({...it}));

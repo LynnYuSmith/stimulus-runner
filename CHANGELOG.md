@@ -2,21 +2,27 @@
 
 ## 1.2 — 2026-09-23
 
-**Plaids.** A plaid angle adds a second grating that many degrees from the first and shows
-their **sum**, sharing spatial frequency, temporal frequency and phase, so a moving plaid
-drifts coherently. **Plaid sum** says what the contrast slider means — per component (each
-grating at that contrast, the sum spanning twice it) or per plaid (the pair inside it, each
-grating at half). An angle of 0 is a single grating and is treated as one everywhere.
+**Plaids: two gratings summed frame by frame, each moving on its own.** Turn on the second
+grating and it gets **its own direction** and **its own temporal frequency**; each carries its
+own phase, so the two are never locked together and the screen shows their sum at every frame.
+**Plaid sum** says what the contrast slider means — per component (each grating at that
+contrast, the sum spanning twice it) or per plaid (the pair inside it, each grating at half).
 
-**+ plaid trio** queues three plaids of one angle with their component pairs 30° apart, after
-Lin, Okun, Carandini & Harris 2015 (*Neuron* 87:644): the plaid angle under test stays fixed
-while the pair rotates, so repetition does not adapt the answer.
+**+ plaid trio** queues three plaids with the same angle between the gratings, the pair rotated
+in **45°** steps — this rig's own grid, so a plaid trio lands on the same directions as a
+sweep. After Lin, Okun, Carandini & Harris 2015 (*Neuron* 87:644), whose design this borrows;
+their components are contrast-reversing and given by orientation, ours drift and are given by
+direction, which is an adaptation and is written down as one.
 
-**The record says which blocks were plaids.** A new `plaid_angle_deg` column in the trial log
-and its recovered CSV; `plaid_angle_deg`, `component_orientations_deg` and
-`plaid_contrast_per` in the exported protocol; the block label reads *Moving plaid 0/90°* and
-never as a plain 0° grating. The photodiode marker is unchanged — a plaid counts as a moving
-or still grating — so nothing already recorded changes meaning.
+**The record says what the second grating was.** New `plaid_direction_deg` and
+`plaid_temporal_freq_hz` columns in the trial log and its recovered CSV; the same plus
+`plaid_angle_deg`, `component_directions_deg`, `component_temporal_freqs_hz` and
+`plaid_contrast_per` in the exported protocol; the block label reads *Moving plaid 0°+90°* and
+never as a plain 0° grating. The photodiode marker is unchanged — a plaid counts as a moving or
+still grating — so nothing already recorded changes meaning.
+
+**Every settings card folds**, and which ones are open is saved with the session, so a cockpit
+arranged for the night comes back arranged after a reload or a crash.
 
 **Known, not a bug:** the default binary waveform makes a three-level chequer rather than the
 smooth interference pattern a plaid usually means. Switch the waveform to sinusoid for plaids.
