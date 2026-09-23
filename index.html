@@ -148,7 +148,13 @@
   #stageWrap:fullscreen #gl{width:100vw;height:100vh}
 
   /* ---- log ---- */
-  #logCard{max-height:220px;display:flex;flex-direction:column}
+  /* The log's height is capped on the SCROLLER, not on the card. Capping the card and letting
+     flex hand the height down does not work once the card folds: Chrome puts a <details>'s
+     contents in a box of its own between the card and our `.body`, so `flex:1` on the body
+     never reaches the table and the log grows straight out of its window -- measured at
+     1550 px past the card with sixty rows. A cap the scroller owns is not routed through
+     anything, and it is what the queue's scroller next door already does. */
+  #logCard .logscroll{max-height:150px}
   /* The resume banner: one question, two answers, shown only when a saved session exists.
      Deliberately not a modal -- the operator may want to glance at the queue first. */
   #resume{display:none;border:1px solid var(--accent);border-radius:8px;padding:10px 12px;margin-bottom:12px;
@@ -258,7 +264,7 @@
             </div></label>
           <label class="f">Spatial freq (cyc/px) <span class="val" id="sfVal">0.020</span>
             <input type="range" id="sf" min="0.005" max="0.100" step="0.001" value="0.02"></label>
-          <label class="f">Temporal freq (Hz) <span class="val" id="tfVal">1.0</span>
+          <label class="f"><span id="tfLabel">Temporal freq (Hz)</span> <span class="val" id="tfVal">1.0</span>
             <input type="range" id="tf" min="0" max="8" step="0.5" value="1"></label>
           <label class="f">Contrast <span class="val" id="ctVal">1.00</span>
             <input type="range" id="ct" min="0" max="1" step="0.05" value="1"></label>
@@ -269,7 +275,7 @@
             </div></label>
           <label class="f">Its direction <span class="val" id="dir2Val">90°</span>
             <input type="range" id="dir2" min="0" max="345" step="15" value="90"></label>
-          <label class="f">Its temporal freq (Hz) <span class="val" id="tf2Val">1.0</span>
+          <label class="f"><span id="tf2Label">Its temporal freq (Hz)</span> <span class="val" id="tf2Val">1.0</span>
             <input type="range" id="tf2" min="0" max="8" step="0.5" value="1"></label>
           <label class="f">Plaid sum
             <div class="seg" id="plaidSeg">
@@ -344,7 +350,8 @@
           <input type="range" id="greyBetween" min="0" max="60" step="0.5" value="4"></label>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
           <button class="linkbtn" id="qAdd">+ grating</button>
-          <button class="linkbtn" id="qPlaidTrio">+ plaid trio</button>
+          <button class="linkbtn" id="qPlaid">+ plaid</button>
+        <button class="linkbtn" id="qPlaidSweep">+ plaid sweep</button>
           <button class="linkbtn" id="qGrey">+ grey</button>
           <button class="linkbtn" id="qBlack">+ black</button>
           <button class="linkbtn" id="qSweep">+ 0–315 sweep</button>
@@ -477,10 +484,15 @@
       <li><b>Plaid sum</b> says what the contrast slider means: <b>per component</b> gives each grating that
         contrast (so the sum reaches twice it, and above 0.5 the peaks flatten against the screen's range),
         <b>per plaid</b> keeps the pair within the contrast set and gives each grating half.</li>
-      <li><b>+ plaid trio</b> queues three plaids with the same angle between the gratings, the whole pair
-        rotated in <b>45°</b> steps (0+90, 45+135, 90+180) — the grid our single gratings already use. After
-        Lin, Okun, Carandini &amp; Harris (2015): rotating the pair without changing the angle, so repetition
-        does not adapt the answer.</li>
+      <li><b>+ plaid</b> queues one plaid as the form reads it. <b>+ plaid sweep</b> queues the pair rotated
+        through all eight directions in <b>45°</b> steps, the same grid the single-grating sweep uses — the
+        angle between the two gratings stays fixed while the pair turns, so repetition does not adapt the
+        answer (after Lin, Okun, Carandini &amp; Harris 2015).</li>
+      <li><b>Motion</b> decides what the rate sliders mean. <b>moving</b>: the pattern drifts, and the slider
+        is its temporal frequency. <b>still</b>: the pattern holds and its <b>contrast reverses</b> at the
+        rate you set — <b>0 is a plain standing grating</b>. Two standing gratings summed is the plaid of the
+        paper this follows; two drifting ones is our own adaptation of it. A standing grating has an
+        orientation and not a direction, so 0° and 180° are then the same stimulus.</li>
       <li><b>Set the waveform to sinusoid</b> for a plaid: our default binary wave is there to match the baked
         stimulus videos, and summing two binary waves gives a three-level chequer rather than the smooth
         interference pattern a plaid is normally taken to mean. Binary still works and is still recorded
@@ -578,6 +590,8 @@ function createRenderer(canvas){
     uniform float uNorm;       // amplitude the sum is scaled by: 1 = per component, 0.5 = per plaid
     uniform float uPhase;      // radians
     uniform float uPhase2;     // the second component's OWN phase — it drifts independently
+    uniform float uAmp;        // first grating's amplitude: 1 when drifting, cos(2πft) when reversing
+    uniform float uAmp2;       // and the second's, on its own rate
     uniform float uContrast;   // 0..1 (0 = flat field at uMeanLum)
     uniform float uMeanLum;    // 0..1 (grey level, or 0 for black)
     uniform float uPixelate;   // 1 = quantize to frame pixels (match the video grid)
@@ -640,8 +654,12 @@ function createRenderer(canvas){
       // direction, and what the screen shows is their sum AT THIS FRAME. Sharing one phase
       // would lock the two together and translate the whole pattern rigidly — a different
       // stimulus, and not the one a moving plaid is meant to be.
-      float g = component(fx*cos(uTheta)  - fy*sin(uTheta),  uPhase);
-      if(uComp2 > 0.5) g += component(fx*cos(uTheta2) - fy*sin(uTheta2), uPhase2);
+      // A grating either DRIFTS — its phase advances, amplitude fixed at 1 — or STANDS still
+      // while its contrast is modulated: the pattern does not move and the amplitude swings
+      // between +1 and −1, which is a contrast-reversing grating. A reversal rate of 0 leaves
+      // the amplitude at 1, which is a plain standing grating. Each grating does its own.
+      float g = uAmp * component(fx*cos(uTheta)  - fy*sin(uTheta),  uPhase);
+      if(uComp2 > 0.5) g += uAmp2 * component(fx*cos(uTheta2) - fy*sin(uTheta2), uPhase2);
       float L = clamp(uMeanLum*(1.0 + uContrast*uNorm*g), 0.0, 1.0);
       gl_FragColor = vec4(L, L, L, 1.0);
     }`;
@@ -659,6 +677,7 @@ function createRenderer(canvas){
   const u = {res:U('uRes'),outPos:U('uOutPos'),outSize:U('uOutSize'),frame:U('uFrame'),
              sf:U('uSF'),theta:U('uTheta'),phase:U('uPhase'),ct:U('uContrast'),lum:U('uMeanLum'),
              theta2:U('uTheta2'),comp2:U('uComp2'),norm:U('uNorm'),phase2:U('uPhase2'),
+             amp:U('uAmp'),amp2:U('uAmp2'),
              pix:U('uPixelate'),wave:U('uWaveform'),mk:U('uMarker'),mkrgb:U('uMarkerRGB'),mkside:U('uMarkerSide'),corner:U('uCorner'),
              apPos:U('uApPos'),apSize:U('uApSize'),
              restLum:U('uRestLum'),mode:U('uMode'),barCenter:U('uBarCenter'),barHalf:U('uBarHalf'),
@@ -668,6 +687,7 @@ function createRenderer(canvas){
     contrast:0, moving:false, theta:0, sf:_S.SPATIAL_FREQ_CPP, tf:1, phase:0,
     plaid:false, dir2:90, plaidNorm:false,   // a SECOND grating with its own direction, summed in
     phase2:0, tf2:1,                         // and its own phase and drift rate
+    amp:1, amp2:1, tElapsed:0,               // standing gratings swing their amplitude instead
     greyLevel:_S.GREY_LEVEL, meanLum:_S.GREY_LEVEL,      // current background mean (grey or 0=black)
     frameW:_S.FRAME_W, frameH:_S.FRAME_H, pixelate:false, waveform:'square',   // binary = our videos
     ratio:_M.RESERVE_RATIO, corner:_M.CORNER,
@@ -707,9 +727,16 @@ function createRenderer(canvas){
     const dt = (now-last)/1000; last=now;
     // phase DECREASES so the grating drifts in the reference generator's direction (with the
     // y-flip above, +phase would drift the opposite way — verified vs pulse2percept).
-    if(st.moving && st.contrast>0 && !st.frozen){
-      st.phase  -= 2*Math.PI*st.tf*dt;                 // frozen = paused mid-sequence
-      st.phase2 -= 2*Math.PI*st.tf2*dt;                // its OWN rate: a negative tf2 drifts the other way
+    if(st.contrast>0 && !st.frozen){                   // frozen = paused mid-sequence
+      st.tElapsed += dt;
+      if(st.moving){
+        st.phase  -= 2*Math.PI*st.tf*dt;               // its OWN rate, each grating
+        st.phase2 -= 2*Math.PI*st.tf2*dt;
+        st.amp = 1; st.amp2 = 1;
+      }else{                                           // standing: the pattern holds, contrast swings
+        st.amp  = Math.cos(2*Math.PI*st.tf *st.tElapsed);   // rate 0 → amplitude stays 1
+        st.amp2 = Math.cos(2*Math.PI*st.tf2*st.tElapsed);
+      }
     }
 
     if(st.mode==='bar'){                                  // advance the sweeping bar across the field
@@ -746,6 +773,8 @@ function createRenderer(canvas){
     gl.uniform1f(u.theta2, st.dir2*Math.PI/180);
     gl.uniform1f(u.comp2, st.plaid ? 1 : 0);
     gl.uniform1f(u.phase2, st.phase2);
+    gl.uniform1f(u.amp, st.amp);
+    gl.uniform1f(u.amp2, st.amp2);
     gl.uniform1f(u.norm, (st.plaid && st.plaidNorm) ? 0.5 : 1);
     gl.uniform1f(u.pix, st.pixelate?1:0);
     gl.uniform1f(u.wave, st.waveform==='square'?1:0);
@@ -772,7 +801,7 @@ function createRenderer(canvas){
     st.plaid = !!tr.plaid; st.plaidNorm = !!tr.plaidNorm;
     st.dir2 = (tr.dir2 == null) ? tr.orientation : +tr.dir2;   // the second grating's OWN direction
     st.tf2  = (tr.tf2  == null) ? tr.tf          : +tr.tf2;    // and its own drift rate
-    st.phase2 = 0;
+    st.phase2 = 0; st.tElapsed = 0; st.amp = 1; st.amp2 = 1;
     st.meanLum = st.greyLevel;                          // grating oscillates around grey
     st.zone = tr.zone || null;                          // per-trial aperture (absent → full field)
     // the contrast half of a back-to-back pair gets its own count (4), so the photodiode
@@ -991,7 +1020,18 @@ if(ROLE === 'stim'){
   bind('greyBetween','gbVal',x=>(+x).toFixed(1));
   function ean(x){ return (+x).toFixed(3); }
   document.querySelectorAll('#moveSeg button').forEach(b=>b.onclick=()=>{
-    document.querySelectorAll('#moveSeg button').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); });
+    document.querySelectorAll('#moveSeg button').forEach(x=>x.classList.remove('sel')); b.classList.add('sel');
+    labelTemporal(); });
+  /* The same slider means two different things, so it has to say which. A drifting grating
+     reads it as how fast the pattern moves; a standing one reads it as how fast its contrast
+     reverses, and 0 there is a plain standing grating with nothing modulating it. A slider
+     labelled for only one of the two is how a session gets recorded as the wrong stimulus. */
+  function labelTemporal(){
+    const still = document.querySelector('#moveSeg .sel').dataset.mv==='still';
+    document.getElementById('tfLabel').textContent  = still ? 'Reversal freq (Hz, 0 = standing)' : 'Temporal freq (Hz)';
+    document.getElementById('tf2Label').textContent = still ? 'Its reversal freq (Hz)' : 'Its temporal freq (Hz)';
+  }
+  labelTemporal();
   document.querySelectorAll('#waveSeg button').forEach(b=>b.onclick=()=>{
     document.querySelectorAll('#waveSeg button').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); pushCfg(); });
   bind('grey','greyVal',x=>Math.round(+x*255), d=>parseFloat(d)/255);   // typed 0–255 -> 0–1 slider
@@ -1529,20 +1569,19 @@ if(ROLE === 'stim'){
       addToQueue({...base, orientation:o, moving:true, type:'moving'});
     });
   };
-  /* Three plaids with the SAME angle between their two gratings, the whole pair rotated in 45°
-     steps (0+90, 45+135, 90+180 for a pair 90° apart). Three rather than one because a single
-     pair shown over and over adapts the very neurons it is meant to measure; rotating the pair
-     leaves the angle between the gratings — the thing under test — fixed. Lin, Okun, Carandini
-     & Harris 2015 present their plaids this way; the step is 45° here because that is the grid
-     our single gratings already use, so a plaid trio lands on the same directions as a sweep.
-     Both directions are taken from the form, so the trio can be placed anywhere. */
-  document.getElementById('qPlaidTrio').onclick = ()=>{
+  /* One plaid, exactly as the form reads — the pair's counterpart to "+ grating". */
+  document.getElementById('qPlaid').onclick = ()=>addToQueue({...formTrial(), plaid:true});
+  /* The pair rotated through all eight directions, the single-grating sweep's counterpart. The
+     angle BETWEEN the two gratings — the thing an experiment varies — stays put while the pair
+     turns, so repetition does not adapt the answer; the 45° step is the grid the single
+     gratings already use, so a plaid sweep lands on the same directions as a grating sweep.
+     Both directions come from the form, so the sweep can start anywhere. */
+  document.getElementById('qPlaidSweep').onclick = ()=>{
     const base = formTrial();
     const gap = +greyBetweenEl.value||0;
-    [0,45,90].forEach((d,i) => {
+    [0,45,90,135,180,225,270,315].forEach((d,i) => {
       if(i>0 && gap>0) addBlock('grey');
-      addToQueue({...base, orientation:(base.orientation+d)%360, dir2:(base.dir2+d)%360,
-                  plaid:true, moving:true, type:'moving'});
+      addToQueue({...base, orientation:(base.orientation+d)%360, dir2:(base.dir2+d)%360, plaid:true});
     });
   };
   /* receptive-field sweep: the SAME grating shown in every cell of the grid in turn (only the
@@ -1700,6 +1739,7 @@ if(ROLE === 'stim'){
     const pick=(id,key,val)=>{ if(val==null) return; document.querySelectorAll('#'+id+' button').forEach(b=>{
       b.classList.toggle('sel', b.dataset[key]===val); }); };
     if(st.moveSeg) pick('moveSeg','mv',st.moveSeg.mv);
+    labelTemporal();                       // the restored motion mode decides what the rate sliders mean
     if(st.waveSeg) pick('waveSeg','wave',st.waveSeg.wave);
     if(st.plaidSeg) pick('plaidSeg','pn',st.plaidSeg.pn);
     if(st.plaidOnSeg) pick('plaidOnSeg','p2',st.plaidOnSeg.p2);

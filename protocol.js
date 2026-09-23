@@ -110,11 +110,12 @@
     o = o || {};
     const dirs = plaidComponents(o.directionDeg, o.plaidDirDeg);
     const phases = [Number(o.phase) || 0, o.phase2 == null ? (Number(o.phase) || 0) : Number(o.phase2)];
+    const amps = [o.amp == null ? 1 : Number(o.amp), o.amp2 == null ? 1 : Number(o.amp2)];
     const square = o.waveform === "square";
     let g = 0;
     dirs.forEach((th, i) => {
       const v = Math.sin(gratingPhaseArg(fx, fy, th, o.sf, phases[i]));
-      g += square ? (v > 0 ? 1 : -1) : v;
+      g += amps[i] * (square ? (v > 0 ? 1 : -1) : v);
     });
     const norm = (dirs.length > 1 && o.plaidNorm) ? 0.5 : 1;
     const mean = o.meanLum == null ? STIM.GREY_LEVEL : Number(o.meanLum);
@@ -128,6 +129,17 @@
    * different phases at the same frame.
    */
   function driftPhase(t, tf) { return -2 * Math.PI * Number(tf) * Number(t); }
+
+  /**
+   * A standing grating's amplitude after `t` seconds at a reversal rate of `tf` Hz. The pattern
+   * does not move; its contrast swings between full and inverted, which is a contrast-reversing
+   * grating. A rate of 0 leaves the amplitude at 1 — a plain standing grating, unmodulated.
+   *
+   * This is the other way a grating can carry time, and the two are exclusive: a drifting
+   * grating advances its phase at amplitude 1, a standing one holds its phase and swings its
+   * amplitude. Summing two standing gratings is how the plaids in the source paper were made.
+   */
+  function reversalAmplitude(t, tf) { return Math.cos(2 * Math.PI * Number(tf) * Number(t)); }
 
   const isGrating = (type) => type === "moving" || type === "still";
 
@@ -191,6 +203,10 @@
       if (grating) {
         item.spatial_freq_cpp = numOrNull(b.sf);
         item.temporal_freq = numOrNull(b.tf);
+        /* The same number means two things depending on the block: how fast a drifting grating
+           moves, or how fast a standing one reverses its contrast. Saying which costs one field
+           and saves an analysis from reading a 4 Hz reversal as a 4 Hz drift. */
+        item.temporal_freq_role = b.type === "moving" ? "drift_hz" : "reversal_hz";
         item.contrast = numOrNull(b.contrast);
         /* A plaid carries its second grating explicitly. `orientation_deg` stays the FIRST
            grating so a consumer that knows nothing of plaids still reads a real direction rather
@@ -259,7 +275,7 @@
   const API = {
     MARKER, STIM, pulsesFor, markerSidePx, markerTrainDuration, blockLabel,
     queueTimeline, buildProtocol, cyclesPerPixel, gratingPhaseArg,
-    plaidComponents, plaidAngle, plaidLuminance, driftPhase,
+    plaidComponents, plaidAngle, plaidLuminance, driftPhase, reversalAmplitude,
   };
 
   if (typeof module !== "undefined" && module.exports) module.exports = API;

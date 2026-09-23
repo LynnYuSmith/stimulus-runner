@@ -216,4 +216,54 @@ test("summing is commutative: the pair does not depend on which grating is named
   }
 });
 
+/* ------------------------------------------------- standing, contrast-reversing gratings */
+
+test("a standing grating swings its contrast instead of moving, and 0 Hz stands plainly", () => {
+  assert.strictEqual(P.reversalAmplitude(0, 4), 1);
+  assert.strictEqual(P.reversalAmplitude(3.7, 0), 1);            // no rate = nothing modulating
+  assert.ok(Math.abs(P.reversalAmplitude(1 / 16, 4) - 0) < 1e-12); // quarter cycle: blank
+  assert.ok(Math.abs(P.reversalAmplitude(1 / 8, 4) + 1) < 1e-12);  // half cycle: inverted
+  assert.ok(Math.abs(P.reversalAmplitude(1 / 4, 4) - 1) < 1e-12);  // full cycle: back
+});
+
+test("at the reversal's zero crossing the screen is uniform grey, whatever the pattern", () => {
+  const o = { directionDeg: 30, sf: 0.02, phase: 0, waveform: "sinusoid",
+              contrast: 0.5, meanLum: 0.5, amp: P.reversalAmplitude(1 / 16, 4) };
+  for (const [fx, fy] of [[0, 0], [17, 3], [88, 51], [149, 103]]) {
+    assert.ok(Math.abs(P.plaidLuminance(fx, fy, o) - 0.5) < 1e-9, `${fx},${fy}`);
+  }
+});
+
+test("inverting the amplitude inverts the pattern about the mean — that is what reversing is", () => {
+  const base = { directionDeg: 30, sf: 0.02, phase: 0, waveform: "sinusoid",
+                 contrast: 0.5, meanLum: 0.5 };
+  for (const [fx, fy] of [[17, 3], [88, 51], [149, 103]]) {
+    const up = P.plaidLuminance(fx, fy, Object.assign({}, base, { amp: 1 }));
+    const down = P.plaidLuminance(fx, fy, Object.assign({}, base, { amp: -1 }));
+    assert.ok(Math.abs((up + down) / 2 - 0.5) < 1e-9, `${fx},${fy}: ${up} ${down}`);
+  }
+});
+
+test("each grating of a standing plaid reverses at its own rate", () => {
+  const o = { directionDeg: 0, plaidDirDeg: 90, sf: 0.02, phase: 0, waveform: "sinusoid",
+              contrast: 0.4, meanLum: 0.5 };
+  const t = 1 / 8;
+  const a = P.plaidLuminance(31, 17, Object.assign({}, o,
+    { amp: P.reversalAmplitude(t, 4), amp2: P.reversalAmplitude(t, 4) }));
+  const b = P.plaidLuminance(31, 17, Object.assign({}, o,
+    { amp: P.reversalAmplitude(t, 4), amp2: P.reversalAmplitude(t, 2) }));
+  assert.notStrictEqual(a, b);
+});
+
+test("the protocol says whether a rate is a drift or a reversal", () => {
+  const proto = P.buildProtocol([
+    { type: "moving", orientation: 0, sf: 0.02, tf: 1, contrast: 0.5, duration_s: 4 },
+    { type: "still", orientation: 0, sf: 0.02, tf: 4, contrast: 0.5, duration_s: 4 },
+  ]);
+  assert.strictEqual(proto.sequence[0].temporal_freq_role, "drift_hz");
+  assert.strictEqual(proto.sequence[1].temporal_freq_role, "reversal_hz");
+  assert.strictEqual(proto.sequence[1].temporal_freq, 4);
+  assert.strictEqual(proto.sequence[1].marker_pulses, 2);   // still is still, to the photodiode
+});
+
 console.log(`\n${passed} passed`);

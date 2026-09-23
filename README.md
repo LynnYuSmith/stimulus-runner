@@ -83,10 +83,10 @@ pair inside the set contrast and gives each grating half. The clamp is the displ
 range, and it is not hidden — 50 % per grating is the highest a plaid carries with its peaks
 intact.
 
-**+ plaid trio** queues three plaids with the same angle between the gratings, the whole pair
-rotated in 45° steps (0+90, 45+135, 90+180) — the grid the single gratings already use, so a
-plaid trio lands on the same directions as a sweep. Rotating the pair leaves the angle between
-the gratings, the thing under test, fixed, so repetition does not adapt the answer.
+**+ plaid** queues one plaid as the form reads it. **+ plaid sweep** queues the pair rotated
+through all eight directions in 45° steps — the same grid the single-grating sweep uses. The
+angle between the two gratings, the thing an experiment varies, stays fixed while the pair
+turns, so repetition does not adapt the answer.
 
 Use the **sinusoid** waveform for plaids. The binary default exists to match the baked stimulus
 videos, and two summed binary waves give a three-level chequer rather than the smooth
@@ -99,11 +99,30 @@ and in the exported protocol (`plaid_direction_deg`, `plaid_temporal_freq_hz`, `
 `component_directions_deg`, `component_temporal_freqs_hz`, `plaid_contrast_per`), where the first
 grating's direction always lived.
 
-**These are drifting plaids, which is an adaptation, not a reproduction.** In the source below
-the summed gratings are *contrast-reversing* — a standing pattern whose contrast oscillates —
-and are specified by orientation, not direction. Drifting components are the form that fits a
-rig whose whole stimulus set is drifting gratings. Say which one you presented; they are not the
-same stimulus.
+Drifting components are the default here, which is the right form for a mouse rig — the source
+below used drifting gratings in the mouse and contrast-reversing ones in the cat, where the
+plaids were made. Both are reachable: the **motion** setting decides which, and the record says
+which was presented.
+
+### Standing and contrast-reversing gratings
+
+A **still** grating holds its pattern and modulates its contrast instead, at a rate you set:
+
+```
+L(x,y,t) = L_mean · (1 + C · k · Σ_i cos(2π·r_i·t) · wave(2π·f·(x·cos θ_i + y·sin θ_i) + φ_i))
+```
+
+A reversal rate of **0 is a plain standing grating**, unmodulated. Above 0 the contrast swings
+between full and inverted, passing through a uniform grey field twice a cycle — which is the
+thing that tells a reversing grating from a drifting one, since a drifting grating never blanks.
+Each grating of a plaid reverses at its own rate.
+
+A standing grating has an orientation and not a direction, so 0° and 180° are then the same
+stimulus, and the direction control is read as orientation. Two standing gratings summed is the
+plaid form of the cat experiment below.
+
+The same slider carries both meanings, so it is labelled for whichever is in force and the
+exported protocol states it outright: `temporal_freq_role` is `drift_hz` or `reversal_hz`.
 
 ## Corner markers
 
@@ -198,10 +217,10 @@ these instead:
 Summed gratings are after **Lin, Okun, Carandini & Harris 2015**, *The Nature of Shared
 Cortical Variability*, *Neuron* 87:644–656 — gratings and plaids over a multi-site array, the
 plaid angle fixed within a session and the component pair rotated across three pairs to keep
-adaptation out of the measurement. What is borrowed is the design: summation, a fixed angle, a
-rotated pair. What is not is the component itself — theirs are contrast-reversing and given by
-orientation, these drift and are given by direction — and the 45° step here comes from this
-rig's own eight directions, not from the paper.
+adaptation out of the measurement. What is borrowed is the design: summation, a
+fixed angle, a rotated pair. Their plaids were made of contrast-reversing components in the
+cat; their mouse gratings drifted, as ours do. Both forms are available here, and the 45° step
+comes from this rig's own eight directions rather than from the paper.
 
 The grating parameters (0.02 cyc/px, ~1 Hz, full contrast) follow the in-house generator and
 sit in the canonical mouse-V1 range (Niell & Stryker 2008, *J Neurosci* 28:7520–7536). The
