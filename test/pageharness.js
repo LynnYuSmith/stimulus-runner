@@ -39,7 +39,9 @@ function makeSandbox(downloads, patch) {
       const attrs = m[1]; const b = el();
       b.tagName = "BUTTON";
       const cls = /class="([^"]*)"/.exec(attrs); b.className = cls ? cls[1] : "";
-      for (const d of attrs.matchAll(/data-([a-z]+)="([^"]*)"/g)) b.dataset[d[1]] = d[2];
+      // digits count: `data-p2` is a perfectly ordinary attribute and a letters-only pattern
+      // drops it SILENTLY, leaving the button with no dataset and the page reading it as unset.
+      for (const d of attrs.matchAll(/data-([a-z][a-z0-9-]*)="([^"]*)"/g)) b.dataset[d[1]] = d[2];
       b.disabled = /\bdisabled\b/.test(attrs.replace(/"[^"]*"/g, ""));
       out.push(b);
     }

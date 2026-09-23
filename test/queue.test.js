@@ -175,4 +175,51 @@ test("a grating straight after a grating is the contrast half: 4 pulses, role=co
   assert.strictEqual(c.count(), 3, "grey in between breaks the pair");
 });
 
+test("+ contrast queues the same grating turned 180°, with NO grey between the two", () => {
+  const { sandbox } = loadPage(`window.__q = {
+    press: (id) => document.getElementById(id).onclick(),
+    set: (id, v) => { const e = document.getElementById(id); e.value = v; },
+    pick: (seg, key, val) => document.querySelectorAll('#'+seg+' button').forEach(b =>
+      b.classList.toggle('sel', b.dataset[key] === val)),
+    queue: () => queue.map(it => ({ type: it.type, ori: it.orientation, dir2: it.dir2,
+                                    plaid: !!it.plaid })),
+  };`);
+  const q = sandbox.window.__q;
+  q.set("ori", 135); q.set("greyBetween", 4);
+  q.press("qContrast");
+  const got = q.queue();
+  assert.strictEqual(got.length, 2, "a pair is two blocks, not three");
+  assert.strictEqual(got[0].ori, 135);
+  assert.strictEqual(got[1].ori, 315, "the contrast half is the base turned 180°");
+  assert.ok(got.every(b => b.type !== "grey"), "a grey inside the pair would break the 4c4s");
+});
+
+test("+ contrast turns BOTH gratings of a plaid, so only the drift reverses", () => {
+  // Driven through contrastPair itself: the page's seg buttons are read with a selector the
+  // DOM stub does not implement, so going through the form here would test the stub, not this.
+  const { sandbox } = loadPage(`window.__p = (b) => contrastPair(b);`);
+  assert.deepStrictEqual(
+    sandbox.window.__p({ orientation: 30, dir2: 120, plaid: true, type: "moving" }),
+    [{ orientation: 30, dir2: 120, plaid: true, type: "moving" },
+     { orientation: 210, dir2: 300, plaid: true, type: "moving" }]);
+  // and it wraps rather than running past 360
+  assert.strictEqual(sandbox.window.__p({ orientation: 315, dir2: 45 })[1].orientation, 135);
+  assert.strictEqual(sandbox.window.__p({ orientation: 315, dir2: 45 })[1].dir2, 225);
+});
+
+test("+ contrast sweep is four pairs over all eight directions, grey only between pairs", () => {
+  const { sandbox } = loadPage(`window.__q = {
+    press: (id) => document.getElementById(id).onclick(),
+    set: (id, v) => { const e = document.getElementById(id); e.value = v; },
+    queue: () => queue.map(it => it.type === 'grey' ? 'grey' : it.orientation),
+  };`);
+  const q = sandbox.window.__q;
+  q.set("ori", 0); q.set("greyBetween", 4);
+  q.press("qContrastSweep");
+  assert.deepStrictEqual(q.queue(),
+    [0, 180, "grey", 45, 225, "grey", 90, 270, "grey", 135, 315]);
+  const dirs = q.queue().filter(v => v !== "grey");
+  assert.strictEqual(new Set(dirs).size, 8, "every direction appears, and appears once");
+});
+
 console.log(`\n  ${passed} queue tests passed`);

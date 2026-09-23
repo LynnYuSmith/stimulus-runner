@@ -83,6 +83,37 @@ pair inside the set contrast and gives each grating half. The clamp is the displ
 range, and it is not hidden — 50 % per grating is the highest a plaid carries with its peaks
 intact.
 
+### Contrast pairs (4c4s)
+
+**+ contrast** queues the same grating drifting one way for its duration and then **straight
+back the other way, with no grey between** — 135 then 315. The response of interest is to the
+*change*, which is why the grey must not be there: a rest between them makes two independent
+presentations instead.
+
+Nothing marks the pair by hand. A grating shown straight after a grating is recognised as the
+contrast half **when it is presented**, from what was actually on screen rather than from the
+queue's plan, and gets **4 marker pulses** instead of 3 with `role=contrast` in the log. A pair
+assembled by hand records identically to one of these.
+
+**+ contrast sweep** queues four such pairs — 135c315, 180c0, 225c45, 270c90 — covering all
+eight directions exactly once, with grey between the pairs and never inside one. A plaid turns
+both of its gratings, so the pattern is identical and only the drift reverses.
+
+### The MESc comment
+
+The Sequence card writes the queue out in the notation the MESc comments use, with a button to
+copy it, so what is typed at the microscope and what the runner records cannot drift apart:
+
+| | |
+|---|---|
+| `135` | a single grating at 135° |
+| `0p90` | a plaid — `p` between the two gratings that are summed |
+| `135c315` | a contrast pair — `c` between a base grating and the contrast grating straight after it |
+
+A rest block separates entries; `c` is a relation between two blocks and is built from what
+actually follows what, not from anything stored on a block. Each grating's own code is in the
+exported protocol as `stim_code`.
+
 **+ plaid** queues one plaid as the form reads it. **+ plaid sweep** queues the pair rotated
 through all eight directions in 45° steps — the same grid the single-grating sweep uses. The
 angle between the two gratings, the thing an experiment varies, stays fixed while the pair

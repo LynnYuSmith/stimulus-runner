@@ -30,6 +30,18 @@ plaid counts as a moving or still grating — so nothing already recorded change
 arranged for the night comes back arranged after a reload or a crash. The trial log keeps its
 window: folding had let the table grow straight out of the card.
 
+**Contrast pairs.** **+ contrast** queues a 4c4s pair — the same grating one way, then straight
+back the other with no grey between — and **+ contrast sweep** queues four of them covering all
+eight directions (135c315, 180c0, 225c45, 270c90), grey between the pairs and never inside one.
+A plaid turns both of its gratings, so only the drift reverses. The contrast half is marked
+where it always was, at presentation time, so it carries 4 pulses and `role=contrast` without
+anything new being trusted.
+
+**The queue is written in the MESc comments' own notation**, shown under the Sequence header
+with a button to copy it: `135` a grating, `0p90` a plaid, `135c315` a contrast pair. Each
+grating's code also goes into the exported protocol as `stim_code`, so the comment typed at the
+microscope and the record the runner keeps cannot drift apart.
+
 **The queue says it is read-only while it plays.** Clear, the row deletes and the reorder
 arrows have always refused to act during a run; they refused silently, so pressing Clear
 mid-run looked exactly like a frozen program. They are now disabled, with a tooltip saying to

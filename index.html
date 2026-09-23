@@ -361,8 +361,12 @@
           <button class="linkbtn" id="qGrey">+ grey</button>
           <button class="linkbtn" id="qBlack">+ black</button>
           <button class="linkbtn" id="qSweep">+ 0–315 sweep</button>
+        <button class="linkbtn" id="qContrast">+ contrast</button>
+        <button class="linkbtn" id="qContrastSweep">+ contrast sweep</button>
           <button class="linkbtn" id="qClear">Clear</button>
+        <button class="linkbtn" id="qMesc" title="copy the queue in the notation the MESc comments use">⧉ MESc comment</button>
         </div>
+        <p class="hint" style="margin:0 0 8px">MESc comment: <code id="qMescText">—</code></p>
         <div class="logscroll" style="max-height:150px">
           <table><thead><tr><th>#</th><th>type</th><th>ori</th><th>dur</th><th></th></tr></thead>
             <tbody id="queueBody"></tbody></table>
@@ -490,6 +494,11 @@
       <li><b>Plaid sum</b> says what the contrast slider means: <b>per component</b> gives each grating that
         contrast (so the sum reaches twice it, and above 0.5 the peaks flatten against the screen's range),
         <b>per plaid</b> keeps the pair within the contrast set and gives each grating half.</li>
+      <li><b>+ contrast</b> queues a <b>4c4s pair</b>: the same grating drifting one way for its duration
+        and then <b>straight back the other way with no grey between</b> (135 then 315, and so on). The
+        second half is automatically marked as the contrast half — <b>4 pulses</b> instead of 3 — so the
+        recording itself says which is which. <b>+ contrast sweep</b> queues four such pairs covering all
+        eight directions, with grey between the pairs and never inside one.</li>
       <li><b>+ plaid</b> queues one plaid as the form reads it. <b>+ plaid sweep</b> queues the pair rotated
         through all eight directions in <b>45°</b> steps, the same grid the single-grating sweep uses — the
         angle between the two gratings stays fixed while the pair turns, so repetition does not adapt the
@@ -1272,7 +1281,7 @@ if(ROLE === 'stim'){
     el.innerHTML=`<td>${row.n}</td><td>${esc(wall)}</td><td class="type-${esc(type)}">${esc(type)}</td>
       <td>${g(orientation,v=>v+'°')}</td><td>${g(duration,v=>v+'s')}</td><td>${g(sf,v=>v.toFixed(3))}</td>
       <td>${g(tf,v=>v.toFixed(1))}</td><td>${g(contrast,v=>v.toFixed(2))}</td>
-      <td>${row.plaidDir==null ? '\u2014' : esc(row.plaidDir+'\u00b0 @'+row.plaidTf+'Hz')}</td>`;
+      <td>${row.plaidDir==null ? '\u2014' : esc('p'+row.plaidDir+'\u00b0 @'+row.plaidTf+'Hz')}</td>`;
     logBody.appendChild(el);                              // oldest on top, newest at the bottom
     const sc = logBody.closest('.logscroll'); if(sc) sc.scrollTop = sc.scrollHeight;   // keep newest in view
   }
@@ -1415,7 +1424,7 @@ if(ROLE === 'stim'){
       const ztxt = z ? ` <span class="hint">▦${z.col+1},${z.row+1}</span>` : '';
       let oriCell = '—';
       if(isGrating && ori!=null)
-        oriCell = (it.plaid ? ori+'°+'+num(it.dir2)+'°' : ori+'°')+ztxt;
+        oriCell = (it.plaid ? ori+'p'+num(it.dir2)+'°' : ori+'°')+ztxt;
       else if(it.type==='bar') oriCell = (dir!=null?dir:0)+'° →';
       else if(it.type==='blitz') oriCell = '⚡'+ztxt;
       row.innerHTML = `<td class="qhandle" title="drag to reorder">⠿ <span class="qnum">${i+1}</span></td>`+
@@ -1441,6 +1450,13 @@ if(ROLE === 'stim'){
     const tot = queue.reduce((s,it)=>s+(+it.duration||0), 0);          // total sequence length
     const m = Math.floor(tot/60), s = Math.round(tot%60);
     document.getElementById('qDur').textContent = tot>=60 ? `${tot.toFixed(0)} s (${m}:${String(s).padStart(2,'0')})` : `${tot.toFixed(1)} s`;
+    /* The same queue, written the way the MESc comment writes it, so what is typed at the
+       microscope and what the runner records cannot drift apart. `c` joins a base grating to
+       the contrast grating shown straight after it; `p` joins the two gratings of a plaid. */
+    const mesc = window.STIMPROTOCOL.mescComment(queue);
+    const el = document.getElementById('qMescText');
+    el.textContent = mesc || '—';
+    document.getElementById('qMesc').disabled = !mesc;
   }
   function moveQueueItem(from, to){                   // to = insertion index in the pre-removal array
     to = Math.max(0, Math.min(to, queue.length));
@@ -1597,6 +1613,33 @@ if(ROLE === 'stim'){
       addToQueue({...base, orientation:o, moving:true, type:'moving'});
     });
   };
+  /* A 4c4s contrast pair: the SAME grating run one way and then straight back the other, with
+     NO grey between. The second half is the base turned 180° — 135c315 in the MESc comment's
+     notation — and a plaid turns both of its gratings, so the pattern is identical and only the
+     drift reverses. The quantity of interest is the response to the CHANGE, which is why the
+     grey must not be there: a rest between them makes two independent presentations instead.
+
+     Nothing here sets the marker. A grating shown straight after a grating is recognised as the
+     contrast half when it is presented, from what was actually on screen rather than from the
+     queue's plan, and gets four pulses instead of three. So a pair assembled by hand, or a
+     manual second grating, is recorded exactly the same way as one of these. */
+  function contrastPair(base){
+    const flip = d => ((+d || 0) + 180) % 360;
+    return [{...base}, {...base, orientation:flip(base.orientation), dir2:flip(base.dir2)}];
+  }
+  document.getElementById('qContrast').onclick = ()=>contrastPair(formTrial()).forEach(addToQueue);
+  /* Every direction as a contrast pair. Four pairs cover all eight directions exactly once,
+     since each pair already holds a direction and its opposite; grey goes BETWEEN the pairs and
+     never inside one. */
+  document.getElementById('qContrastSweep').onclick = ()=>{
+    const base = formTrial();
+    const gap = +greyBetweenEl.value||0;
+    [0,45,90,135].forEach((d,i) => {
+      if(i>0 && gap>0) addBlock('grey');
+      contrastPair({...base, orientation:(base.orientation+d)%360, dir2:(base.dir2+d)%360})
+        .forEach(addToQueue);
+    });
+  };
   /* One plaid, exactly as the form reads — the pair's counterpart to "+ grating". */
   document.getElementById('qPlaid').onclick = ()=>addToQueue({...formTrial(), plaid:true});
   /* The pair rotated through all eight directions, the single-grating sweep's counterpart. The
@@ -1625,6 +1668,19 @@ if(ROLE === 'stim'){
     }
   };
   document.getElementById('qClear').onclick = ()=>{ if(!running){ queue.length=0; renderQueue(); } };
+  document.getElementById('qMesc').onclick = ()=>{
+    const txt = document.getElementById('qMescText').textContent;
+    if(!txt || txt === '\u2014') return;
+    const b = document.getElementById('qMesc'), was = b.textContent;
+    const done = ok => { b.textContent = ok ? '\u2713 copied' : '\u2717 copy failed';
+                         setTimeout(()=>{ b.textContent = was; }, 1400); };
+    /* The clipboard is refused outside a secure context, and the rig serves over plain http on
+       127.0.0.1 -- which Chrome does treat as secure, but a runner opened by IP from another
+       machine is not. Say when it did not work rather than looking like it did; the text is on
+       screen either way and can be selected by hand. */
+    try{ navigator.clipboard.writeText(txt).then(()=>done(true), ()=>done(false)); }
+    catch(e){ done(false); }
+  };
   document.getElementById('qRun').onclick = ()=>{ running ? stopQueue() : runQueue(); };
 
   /* ---- protocol library: JSON files in the protocols/ folder, owned by serve.py.

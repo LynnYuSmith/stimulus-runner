@@ -177,8 +177,8 @@ test("no second grating means no second grating — the single case is untouched
 });
 
 test("a plaid never reads as a single grating: the label names both gratings", () => {
-  assert.strictEqual(P.blockLabel("moving", 0, 90), "Moving plaid 0°+90°");
-  assert.strictEqual(P.blockLabel("still", 45, 135), "Static plaid 45°+135°");
+  assert.strictEqual(P.blockLabel("moving", 0, 90), "Moving plaid 0p90°");
+  assert.strictEqual(P.blockLabel("still", 45, 135), "Static plaid 45p135°");
   assert.strictEqual(P.blockLabel("moving", 0, null), "Moving 0°");   // unchanged without one
   assert.strictEqual(P.blockLabel("moving", 0), "Moving 0°");
 });
@@ -198,7 +198,7 @@ test("the exported protocol states the second grating, and states there was none
   assert.strictEqual(plaid.plaid_contrast_per, "plaid");
   assert.strictEqual(plaid.orientation_deg, 0);        // still a real direction, not an average
   assert.strictEqual(plaid.marker_pulses, 3);          // the photodiode sees a moving grating
-  assert.strictEqual(plaid.label, "Moving plaid 0°+90°");
+  assert.strictEqual(plaid.label, "Moving plaid 0p90°");
   assert.strictEqual(grating.plaid_direction_deg, null);
   assert.strictEqual(grating.plaid_angle_deg, null);
   assert.deepStrictEqual(grating.component_directions_deg, [45]);
@@ -264,6 +264,54 @@ test("the protocol says whether a rate is a drift or a reversal", () => {
   assert.strictEqual(proto.sequence[1].temporal_freq_role, "reversal_hz");
   assert.strictEqual(proto.sequence[1].temporal_freq, 4);
   assert.strictEqual(proto.sequence[1].marker_pulses, 2);   // still is still, to the photodiode
+});
+
+/* ------------------------------------------- the notation the MESc comments are written in */
+
+test("a block is named the way the MESc comment names it", () => {
+  assert.strictEqual(P.mescCode({ type: "moving", orientation: 135 }), "135");
+  assert.strictEqual(P.mescCode({ type: "still", orientation: 0 }), "0");
+  assert.strictEqual(P.mescCode({ type: "moving", orientation: 0, plaid: true, dir2: 90 }), "0p90");
+  assert.strictEqual(P.mescCode({ type: "grey" }), null);      // rest blocks are not named
+  assert.strictEqual(P.mescCode({ type: "bar", orientation: 0 }), null);
+});
+
+test("two gratings with nothing between them are joined by c, base first", () => {
+  const q = [
+    { type: "moving", orientation: 135 }, { type: "moving", orientation: 315 },
+    { type: "grey" },
+    { type: "moving", orientation: 180 }, { type: "moving", orientation: 0 },
+  ];
+  assert.strictEqual(P.mescComment(q), "135c315, 180c0deg");
+});
+
+test("a grey between two gratings breaks the pair, which is what the grey is for", () => {
+  assert.strictEqual(P.mescComment([
+    { type: "moving", orientation: 135 }, { type: "grey" }, { type: "moving", orientation: 315 },
+  ]), "135, 315deg");
+});
+
+test("plaids are written with p, and a plaid pair carries both", () => {
+  assert.strictEqual(P.mescComment([
+    { type: "moving", orientation: 0, plaid: true, dir2: 90 },
+    { type: "moving", orientation: 180, plaid: true, dir2: 270 },
+  ]), "0p90c180p270deg");
+  assert.strictEqual(P.mescComment([{ type: "moving", orientation: 0, plaid: true, dir2: 90 }]),
+                     "0p90deg");
+  assert.strictEqual(P.mescComment([{ type: "grey" }]), "");
+  assert.strictEqual(P.mescComment([]), "");
+});
+
+test("the exported protocol carries each block's code", () => {
+  const proto = P.buildProtocol([
+    { type: "moving", orientation: 0, sf: 0.02, tf: 1, contrast: 1, duration_s: 4,
+      plaid: true, dir2: 90 },
+    { type: "moving", orientation: 135, sf: 0.02, tf: 1, contrast: 1, duration_s: 4 },
+    { type: "grey", duration_s: 4 },
+  ]);
+  assert.strictEqual(proto.sequence[0].stim_code, "0p90");
+  assert.strictEqual(proto.sequence[1].stim_code, "135");
+  assert.strictEqual(proto.sequence[2].stim_code, undefined);   // a grey has no code
 });
 
 console.log(`\n${passed} passed`);

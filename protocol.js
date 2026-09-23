@@ -73,7 +73,7 @@
     if (type === "bar") return orientationDeg == null ? "Bar sweep" : `Bar ${Number(orientationDeg)}°`;
     const kind = type === "moving" ? "Moving" : "Static";
     const a = Number(orientationDeg);
-    if (plaidDirDeg != null) return `${kind} plaid ${a}°+${Number(plaidDirDeg)}°`;
+    if (plaidDirDeg != null) return `${kind} plaid ${a}p${Number(plaidDirDeg)}°`;
     return `${kind} ${a}°`;
   }
 
@@ -86,6 +86,43 @@
   function plaidComponents(directionDeg, plaidDirDeg) {
     const a = Number(directionDeg);
     return plaidDirDeg == null ? [a] : [a, Number(plaidDirDeg)];
+  }
+
+  /**
+   * A block's name in the notation used in the MESc comments, so what is typed at the
+   * microscope and what the runner records are the same string.
+   *
+   *   `135`      a single grating at 135°
+   *   `0p90`     a plaid: `p` between the two gratings that are summed
+   *
+   * The pair notation `135c315` — `c` between a base grating and the contrast grating shown
+   * straight after it — is not a block but a RELATION between two, so it is built by
+   * `mescComment` below from what actually follows what.
+   */
+  function mescCode(block) {
+    if (!isGrating(block.type)) return null;
+    const a = Number(block.orientation);
+    return block.plaid ? `${a}p${Number(block.dir2)}` : `${a}`;
+  }
+
+  /**
+   * The queue written out the way a MESc comment writes it: each grating named by `mescCode`,
+   * and two gratings with nothing between them joined by `c` — base first, contrast second.
+   * Rest blocks separate entries and are not named.
+   *
+   *   [135, 315, grey, 180, 0]  ->  "135c315, 180c0deg"
+   *   [0p90, grey, 45p135]      ->  "0p90, 45p135deg"
+   */
+  function mescComment(queue) {
+    const parts = [];
+    let run = [];
+    const flush = () => { if (run.length) { parts.push(run.join("c")); run = []; } };
+    for (const it of queue || []) {
+      const code = mescCode(it);
+      if (code == null) flush(); else run.push(code);
+    }
+    flush();
+    return parts.length ? parts.join(", ") + "deg" : "";
   }
 
   /** The angle between a plaid's two gratings, 0–180°, or null when there is only one. */
@@ -221,6 +258,8 @@
         item.component_temporal_freqs_hz =
           d2 == null ? [numOrNull(b.tf)] : [numOrNull(b.tf), numOrNull(b.tf2)];
         item.plaid_contrast_per = d2 == null ? null : (b.plaidNorm ? "plaid" : "component");
+        item.stim_code = mescCode({ type: b.type, orientation: b.orientation,
+                                    plaid: d2 != null, dir2: d2 });
         oris.add(Number(b.orientation));
         if (stimDur == null) stimDur = dur;
       } else if (b.type === "grey" && greyDur == null) {
@@ -276,6 +315,7 @@
     MARKER, STIM, pulsesFor, markerSidePx, markerTrainDuration, blockLabel,
     queueTimeline, buildProtocol, cyclesPerPixel, gratingPhaseArg,
     plaidComponents, plaidAngle, plaidLuminance, driftPhase, reversalAmplitude,
+    mescCode, mescComment,
   };
 
   if (typeof module !== "undefined" && module.exports) module.exports = API;
