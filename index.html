@@ -274,6 +274,8 @@
             <input type="range" id="tf" min="0" max="8" step="0.5" value="1"></label>
           <label class="f">Contrast <span class="val" id="ctVal">1.00</span>
             <input type="range" id="ct" min="0" max="1" step="0.05" value="1"></label>
+          <label class="f" title="where in its cycle the grating starts, at the frame's top-left corner: 0° a rising zero crossing, 90° a peak, 180° the falling crossing. A standing grating keeps this offset for the whole block">Start phase <span class="val" id="phaseVal">0°</span>
+            <input type="range" id="phase" min="0" max="355" step="5" value="0"></label>
           <label class="f">Second grating
             <div class="seg" id="plaidOnSeg">
               <button data-p2="off" class="sel">off</button>
@@ -283,6 +285,8 @@
             <input type="range" id="dir2" min="0" max="345" step="15" value="90"></label>
           <label class="f"><span id="tf2Label">Its temporal freq (Hz)</span> <span class="val" id="tf2Val">1.0</span>
             <input type="range" id="tf2" min="0" max="8" step="0.5" value="1"></label>
+          <label class="f" title="the second grating's own starting phase, independent of the first — set the two apart to choose where the plaid's intersections fall at onset">Its start phase <span class="val" id="phase2Val">0°</span>
+            <input type="range" id="phase2" min="0" max="355" step="5" value="0"></label>
           <label class="f">Plaid sum
             <div class="seg" id="plaidSeg">
               <button data-pn="components" class="sel">per component</button>
@@ -500,6 +504,12 @@
       <li><b>Plaid sum</b> says what the contrast slider means: <b>per component</b> gives each grating that
         contrast (so the sum reaches twice it, and above 0.5 the peaks flatten against the screen's range),
         <b>per plaid</b> keeps the pair within the contrast set and gives each grating half.</li>
+      <li><b>Start phase</b> and <b>Its start phase</b> say where each grating begins in its cycle, at the
+        frame's top-left corner: <b>0°</b> a rising zero crossing, <b>90°</b> a bright peak, <b>180°</b> the
+        falling crossing, <b>270°</b> a trough. The two are independent, so setting them apart moves where a
+        plaid's intersections fall at onset. A drifting grating starts there and moves on; a standing one keeps
+        that offset for the whole block. Both are 0 unless set, which is what every block was before, and
+        a non-zero phase shows in the queue as <b>φ</b>.</li>
       <li><b>+ contrast</b> queues a <b>4c4s pair</b>: the same grating drifting one way for its duration
         and then <b>straight back the other way with no grey between</b> (135 then 315, and so on). The
         second half is automatically marked as the contrast half — <b>4 pulses</b> instead of 3 — so the
@@ -818,11 +828,14 @@ function createRenderer(canvas){
   function present(tr){                    // tr: {type,orientation,sf,tf,contrast,moving}
     st.mode = 'grating';
     st.theta = tr.orientation; if(tr.sf!=null) st.sf = tr.sf; st.tf = tr.tf;
-    st.contrast = tr.contrast; st.moving = tr.moving; st.phase = 0;
+    st.contrast = tr.contrast; st.moving = tr.moving;
+    st.phase = window.STIMPROTOCOL.phaseRad(tr.phaseDeg);          // where each grating STARTS
+
     st.plaid = !!tr.plaid; st.plaidNorm = !!tr.plaidNorm;
     st.dir2 = (tr.dir2 == null) ? tr.orientation : +tr.dir2;   // the second grating's OWN direction
     st.tf2  = (tr.tf2  == null) ? tr.tf          : +tr.tf2;    // and its own drift rate
-    st.phase2 = 0; st.tElapsed = 0; st.amp = 1; st.amp2 = 1;
+    st.phase2 = window.STIMPROTOCOL.phaseRad(tr.phase2Deg);        // in its cycle; 0 unless set
+    st.tElapsed = 0; st.amp = 1; st.amp2 = 1;
     st.meanLum = st.greyLevel;                          // grating oscillates around grey
     st.zone = tr.zone || null;                          // per-trial aperture (absent → full field)
     // the contrast half of a back-to-back pair gets its own count (4), so the photodiode
@@ -936,6 +949,8 @@ if(ROLE === 'stim'){
       sf:+document.getElementById('sf').value,
       tf:+document.getElementById('tf').value,
       contrast:+document.getElementById('ct').value,
+      phaseDeg:+document.getElementById('phase').value,             // each grating's starting phase
+      phase2Deg:+document.getElementById('phase2').value,
       duration:+document.getElementById('dur').value,
       plaid: document.querySelector('#plaidOnSeg .sel').dataset.p2==='on',
       dir2:+document.getElementById('dir2').value,                 // the second grating's own direction
@@ -1035,6 +1050,7 @@ if(ROLE === 'stim'){
   bind('ori','oriVal',x=>x+'°'); bind('sf','sfVal',x=>ean(x)); bind('tf','tfVal',x=>(+x).toFixed(1));
   bind('ct','ctVal',x=>(+x).toFixed(2));
   bind('dir2','dir2Val',x=>x+'\u00b0'); bind('tf2','tf2Val',x=>(+x).toFixed(1));
+  bind('phase','phaseVal',x=>x+'\u00b0'); bind('phase2','phase2Val',x=>x+'\u00b0');
   bind('seqDur','seqDurVal',x=>(+x).toFixed(1)); bind('seqOri','seqOriVal',x=>x+'\u00b0');
   /* The Sequence card repeats the two controls reached for most while building a queue. They
      are MIRRORS of the fields in Custom grating, not a second pair of settings: one value each,
@@ -1236,7 +1252,8 @@ if(ROLE === 'stim'){
     direction_deg:r.ori ?? null, orientation_deg:r.ori ?? null, duration_s:r.dur ?? null,
     spatial_freq_cpd:r.sf ?? null, temporal_freq_hz:r.tf ?? null, contrast:r.contrast ?? null,
     stim_kind:r.kind||'', stim_code:r.code||'', pair_code:r.pairCode||'', pair_part:r.pairPart ?? null,
-    plaid_direction_deg:r.plaidDir ?? null, plaid_temporal_freq_hz:r.plaidTf ?? null });
+    plaid_direction_deg:r.plaidDir ?? null, plaid_temporal_freq_hz:r.plaidTf ?? null,
+    start_phase_deg:r.phaseDeg ?? null, plaid_start_phase_deg:r.plaidPhaseDeg ?? null });
   function persist(batch){
     try{
       const seq = ++saveSeq;
@@ -1282,7 +1299,7 @@ if(ROLE === 'stim'){
      second half is no longer labelled "contrast" as though it were a third sort of stimulus. */
   function logEntry({type, orientation=null, duration=null, sf=null, tf=null, contrast=null,
                      kind=null, code=null, pairsWithPrevious=false,
-                     plaidDir=null, plaidTf=null}){
+                     plaidDir=null, plaidTf=null, phaseDeg=null, plaidPhaseDeg=null}){
     const now=new Date();
     /* ISO 8601 in LOCAL time, with the date. The old form was time-of-day only, so a session
        running past midnight produced timestamps that sort wrongly and cannot be placed on a
@@ -1303,7 +1320,9 @@ if(ROLE === 'stim'){
     const row={n:++logSeq, wall, type, ori:orientation, dur:duration, sf, tf, contrast, ms:now.getTime(),
                kind: kind||'', code: code||'', pairCode:'', pairPart:null,
                plaidDir: plaidDir==null ? null : +plaidDir,
-               plaidTf: plaidTf==null ? null : +plaidTf};
+               plaidTf: plaidTf==null ? null : +plaidTf,
+               phaseDeg: phaseDeg==null ? null : +phaseDeg,
+               plaidPhaseDeg: plaidPhaseDeg==null ? null : +plaidPhaseDeg};
     /* The pair is only known when its SECOND block starts, so the first block's row is amended
        here and sent again. The server replays a repeated `n` as the later value, which is the
        same route the retroactive duration above already takes. */
@@ -1331,6 +1350,7 @@ if(ROLE === 'stim'){
     logEntry({type:tr.type, orientation:tr.orientation, duration:tr.duration,
               sf:tr.sf, tf:tr.tf, contrast:tr.contrast,
               plaidDir: tr.plaid ? tr.dir2 : null, plaidTf: tr.plaid ? tr.tf2 : null,
+              phaseDeg: +(tr.phaseDeg||0), plaidPhaseDeg: tr.plaid ? +(tr.phase2Deg||0) : null,
               kind: window.STIMPROTOCOL.stimKind(block),
               code: window.STIMPROTOCOL.mescCode(block),
               pairsWithPrevious: !!tr.contrastHalf}); }
@@ -1368,10 +1388,10 @@ if(ROLE === 'stim'){
        anything already reading that name keeps working. */
     const head='n,wallclock,unix_ms,type,direction_deg,orientation_deg,duration_s,'
       +'spatial_freq_cpd,temporal_freq_hz,contrast,stim_kind,stim_code,pair_code,pair_part,'
-      +'plaid_direction_deg,plaid_temporal_freq_hz';
+      +'plaid_direction_deg,plaid_temporal_freq_hz,start_phase_deg,plaid_start_phase_deg';
     const body=rows.map(r=>[r.n,r.wall,r.ms,r.type,r.ori,r.ori,r.dur,r.sf,r.tf,r.contrast,
                            r.kind||'',r.code||'',r.pairCode||'',r.pairPart??'',
-                           r.plaidDir??'',r.plaidTf??'']
+                           r.plaidDir??'',r.plaidTf??'',r.phaseDeg??'',r.plaidPhaseDeg??'']
       .join(',')).join('\n');
     download('stimlog.csv', head+'\n'+body, 'text/csv');
   });
@@ -1403,6 +1423,7 @@ if(ROLE === 'stim'){
                  tf: tr?tr.tf:null, contrast: tr?tr.contrast:null,
                  plaid: tr ? !!tr.plaid : false, dir2: tr ? +tr.dir2 : null,
                  tf2: tr ? +tr.tf2 : null, plaidNorm: tr ? !!tr.plaidNorm : false,
+                 phaseDeg: tr ? +(tr.phaseDeg||0) : null, phase2Deg: tr ? +(tr.phase2Deg||0) : null,
                  startMs: performance.now() };
   }
   function snapshotBlock(){
@@ -1412,7 +1433,7 @@ if(ROLE === 'stim'){
     return { type:curBlock.type, orientation:curBlock.orientation, sf:curBlock.sf,
              tf:curBlock.tf, contrast:curBlock.contrast, duration_s:dur,
              plaid:curBlock.plaid, dir2:curBlock.dir2, tf2:curBlock.tf2,
-             plaidNorm:curBlock.plaidNorm };
+             plaidNorm:curBlock.plaidNorm, phaseDeg:curBlock.phaseDeg, phase2Deg:curBlock.phase2Deg };
   }
   /* Grey IS shown on the screen, so it belongs in the record and is kept. But a grey block
      measures wall time from when it opened, so a runner left open between recordings ends up
@@ -1470,8 +1491,12 @@ if(ROLE === 'stim'){
       const z = it.zone;
       const ztxt = z ? ` <span class="hint">▦${z.col+1},${z.row+1}</span>` : '';
       let oriCell = '—';
-      if(isGrating && ori!=null)
-        oriCell = (it.plaid ? ori+'p'+num(it.dir2)+'°' : ori+'°')+ztxt;
+      if(isGrating && ori!=null){
+        // a starting phase other than 0 is shown, or two rows that look alike behave differently
+        const ph = (+it.phaseDeg||0) || (it.plaid && (+it.phase2Deg||0))
+          ? ` <span class="hint" title="start phase">φ${num(+it.phaseDeg||0)}${it.plaid ? '/'+num(+it.phase2Deg||0) : ''}°</span>` : '';
+        oriCell = (it.plaid ? ori+'p'+num(it.dir2)+'°' : ori+'°')+ph+ztxt;
+      }
       else if(it.type==='bar') oriCell = (dir!=null?dir:0)+'° →';
       else if(it.type==='blitz') oriCell = '⚡'+ztxt;
       row.innerHTML = `<td class="qhandle" title="drag to reorder">⠿ <span class="qnum">${i+1}</span></td>`+
@@ -1569,7 +1594,8 @@ if(ROLE === 'stim'){
   function addToQueue(tr){
     pushBlock({ type:tr.type, orientation:tr.orientation, sf:tr.sf, tf:tr.tf,
                 contrast:tr.contrast, duration:tr.duration, moving:tr.moving, zone:tr.zone||null,
-                plaid:!!tr.plaid, dir2:+tr.dir2, tf2:+tr.tf2, plaidNorm:!!tr.plaidNorm });
+                plaid:!!tr.plaid, dir2:+tr.dir2, tf2:+tr.tf2, plaidNorm:!!tr.plaidNorm,
+                phaseDeg:+(tr.phaseDeg||0), phase2Deg:+(tr.phase2Deg||0) });
   }
   function addBlock(type){                        // a rest block (grey/black) of the rest-slider duration
     pushBlock({ type, orientation:null, duration:(+greyBetweenEl.value||0) });
@@ -1807,7 +1833,7 @@ if(ROLE === 'stim'){
      One thing is never restored: `running`. After a crash the queue stands at its position,
      paused, and the operator says go. A queue that resumed playing by itself the moment a
      page loaded would be a stimulus nobody asked for. */
-  const FORM_IDS = ['ori','sf','tf','ct','dir2','tf2','dur','greyBetween','grey','frameW','frameH',
+  const FORM_IDS = ['ori','sf','tf','ct','phase','phase2','dir2','tf2','dur','greyBetween','grey','frameW','frameH',
                     'outW','outH','ratio','corner','zcols','zrows','blLum','barLumR','barDir','barW'];
   const CHECK_IDS = ['pixelate','fillScreen'];
   const segSel = id => { const b=document.querySelector('#'+id+' .sel'); return b ? {...b.dataset} : null; };

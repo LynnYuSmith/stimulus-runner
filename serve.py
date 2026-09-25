@@ -129,7 +129,8 @@ _SESSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 STIMLOG_COLUMNS = ("n", "wallclock", "unix_ms", "type", "direction_deg", "orientation_deg",
                    "duration_s", "spatial_freq_cpd", "temporal_freq_hz", "contrast",
                    "stim_kind", "stim_code", "pair_code", "pair_part",
-                   "plaid_direction_deg", "plaid_temporal_freq_hz")
+                   "plaid_direction_deg", "plaid_temporal_freq_hz",
+                   "start_phase_deg", "plaid_start_phase_deg")
 
 
 def log_paths(session: str):

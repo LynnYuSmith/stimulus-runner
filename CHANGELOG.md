@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+**Each grating starts at a phase you set.** *Start phase* and, for a plaid, *Its start phase*
+put each grating at its own point in its cycle at onset — 0° a rising zero crossing at the
+frame's top-left, 90° a peak, 180° the falling crossing, 270° a trough. The two are
+independent, so a plaid's intersections can be placed; a drifting grating starts there and
+moves on, a standing one keeps the offset for the block. Both default to 0, so every existing
+protocol and queue shows exactly what it showed before. A non-zero phase is marked **φ** in the
+queue. Checked on the real stimulus screen, not only in the model of it: at contrast 0.5 the
+top-left reads 192 at 90° and 64 at 270° (`test/phase_real_chrome.js`).
+
+The record carries it: `start_phase_deg` and `plaid_start_phase_deg` in the trial log and its
+recovered CSV (appended after the existing columns, so readers by name are unaffected), and
+the same plus `component_start_phases_deg` in the exported protocol.
+
 ## 1.2 — 2026-09-23
 
 **Plaids: two gratings summed frame by frame, each moving on its own.** Turn on the second

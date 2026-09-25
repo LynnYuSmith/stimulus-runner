@@ -249,4 +249,36 @@ test("+ contrast sweep is four pairs over all eight directions, grey only betwee
   assert.strictEqual(new Set(dirs).size, 8, "every direction appears, and appears once");
 });
 
+test("each grating of a plaid starts at its own phase, from the form to the screen to the log", () => {
+  const { sandbox } = loadPage(`window.__f = {
+    press: (id) => document.getElementById(id).onclick(),
+    set: (id, v) => { const e = document.getElementById(id); e.value = v; },
+    queue: () => JSON.stringify(queue.map(it => ({ plaid: !!it.plaid, a: it.phaseDeg, b: it.phase2Deg }))),
+    present: (tr) => { R.present(Object.assign({ type:'moving', orientation:0, sf:0.02, tf:1,
+                                                 contrast:1, moving:true }, tr));
+                       return JSON.stringify([R.st.phase, R.st.phase2]); },
+    show: (tr) => showGrating(Object.assign({ type:'moving', sf:0.02, tf:1, contrast:1,
+                                              duration:4, moving:true }, tr)),
+    last: () => JSON.stringify(rows[rows.length-1]),
+  };`);
+  const f = sandbox.window.__f;
+  f.set("phase", 90); f.set("phase2", 180); f.set("dir2", 90);
+  f.press("qPlaid");
+  assert.deepStrictEqual(JSON.parse(f.queue()), [{ plaid: true, a: 90, b: 180 }]);
+
+  const [p1, p2] = JSON.parse(f.present({ plaid: true, dir2: 90, phaseDeg: 90, phase2Deg: 180 }));
+  assert.ok(Math.abs(p1 - Math.PI / 2) < 1e-12 && Math.abs(p2 - Math.PI) < 1e-12, `${p1} ${p2}`);
+  // the control: a block from before starting phases existed still starts both at 0
+  assert.deepStrictEqual(JSON.parse(f.present({ plaid: true, dir2: 90 })), [0, 0]);
+
+  f.show({ orientation: 0, plaid: true, dir2: 90, tf2: 1, phaseDeg: 90, phase2Deg: 180 });
+  const row = JSON.parse(f.last());
+  assert.strictEqual(row.phaseDeg, 90);
+  assert.strictEqual(row.plaidPhaseDeg, 180);
+  f.show({ orientation: 45, phaseDeg: 30 });                 // a single grating: no second phase
+  const one = JSON.parse(f.last());
+  assert.strictEqual(one.phaseDeg, 30);
+  assert.strictEqual(one.plaidPhaseDeg, null);
+});
+
 console.log(`\n  ${passed} queue tests passed`);

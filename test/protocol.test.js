@@ -314,4 +314,31 @@ test("the exported protocol carries each block's code", () => {
   assert.strictEqual(proto.sequence[2].stim_code, undefined);   // a grey has no code
 });
 
+test("the exported protocol says where each grating started in its cycle", () => {
+  const proto = P.buildProtocol([
+    { type: "still", orientation: 0, sf: 0.02, tf: 2, contrast: 0.5, duration_s: 4,
+      plaid: true, dir2: 90, tf2: 2, phaseDeg: 90, phase2Deg: 370 },
+    { type: "moving", orientation: 45, sf: 0.02, tf: 1, contrast: 0.5, duration_s: 4, phaseDeg: 30 },
+    { type: "moving", orientation: 45, sf: 0.02, tf: 1, contrast: 0.5, duration_s: 4 },
+  ]);
+  const [plaid, one, old] = proto.sequence;
+  assert.strictEqual(plaid.start_phase_deg, 90);
+  assert.strictEqual(plaid.plaid_start_phase_deg, 10);             // 370 wraps to 10
+  assert.deepStrictEqual(plaid.component_start_phases_deg, [90, 10]);
+  assert.strictEqual(one.start_phase_deg, 30);
+  assert.strictEqual(one.plaid_start_phase_deg, null);             // there was no second grating
+  assert.deepStrictEqual(one.component_start_phases_deg, [30]);
+  assert.strictEqual(old.start_phase_deg, 0);                      // a block from before: it was 0
+});
+
+test("a start phase of 90 degrees puts a peak at the frame's top-left, 270 a trough", () => {
+  const at = (deg) => P.plaidLuminance(0, 0, { directionDeg: 0, plaidDirDeg: null, sf: 0.02,
+    contrast: 1, meanLum: 0.5, waveform: "sinusoid", phase: P.phaseRad(deg) });
+  assert.ok(Math.abs(at(90) - 1) < 1e-12, `${at(90)}`);
+  assert.ok(Math.abs(at(270) - 0) < 1e-12, `${at(270)}`);
+  assert.ok(Math.abs(at(0) - 0.5) < 1e-12, `${at(0)}`);             // 0 is the zero crossing
+  assert.strictEqual(P.phaseRad(-90), P.phaseRad(270));
+  assert.strictEqual(P.phaseRad(undefined), 0);
+});
+
 console.log(`\n${passed} passed`);

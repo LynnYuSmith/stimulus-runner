@@ -168,6 +168,24 @@
   function driftPhase(t, tf) { return -2 * Math.PI * Number(tf) * Number(t); }
 
   /**
+   * A starting phase as the operator sets it — degrees of the grating's cycle — in the radians
+   * the shader adds (`arg = 2*pi*sf*d + phase`). 0 is a rising zero crossing at the frame's
+   * top-left, 90 a peak there. Wrapped into [0, 360), and 0 for anything missing, which is what
+   * every block was before starting phases could be set.
+   */
+  function phaseRad(deg) {
+    const d = Number(deg);
+    if (!Number.isFinite(d)) return 0;
+    return ((d % 360 + 360) % 360) * Math.PI / 180;
+  }
+
+  /** The same, kept in degrees for the record. */
+  function phaseDegOrZero(deg) {
+    const d = Number(deg);
+    return Number.isFinite(d) ? ((d % 360 + 360) % 360) : 0;
+  }
+
+  /**
    * A standing grating's amplitude after `t` seconds at a reversal rate of `tf` Hz. The pattern
    * does not move; its contrast swings between full and inverted, which is a contrast-reversing
    * grating. A rate of 0 leaves the amplitude at 1 — a plain standing grating, unmodulated.
@@ -296,6 +314,13 @@
         item.component_temporal_freqs_hz =
           d2 == null ? [numOrNull(b.tf)] : [numOrNull(b.tf), numOrNull(b.tf2)];
         item.plaid_contrast_per = d2 == null ? null : (b.plaidNorm ? "plaid" : "component");
+        /* Where each grating started in its cycle. For a drifting grating it is where the drift
+           begins; for a standing one it is the whole block's spatial offset, and for a plaid the
+           pair of them decides where the intersections fall at onset — so both are written. */
+        item.start_phase_deg = phaseDegOrZero(b.phaseDeg);
+        item.plaid_start_phase_deg = d2 == null ? null : phaseDegOrZero(b.phase2Deg);
+        item.component_start_phases_deg =
+          d2 == null ? [item.start_phase_deg] : [item.start_phase_deg, item.plaid_start_phase_deg];
         item.stim_code = mescCode({ type: b.type, orientation: b.orientation,
                                     plaid: d2 != null, dir2: d2 });
         item.stim_kind = stimKind({ type: b.type, plaid: d2 != null });
@@ -355,7 +380,7 @@
   const API = {
     MARKER, STIM, pulsesFor, markerSidePx, markerTrainDuration, blockLabel,
     queueTimeline, buildProtocol, cyclesPerPixel, gratingPhaseArg,
-    plaidComponents, plaidAngle, plaidLuminance, driftPhase, reversalAmplitude,
+    plaidComponents, plaidAngle, plaidLuminance, driftPhase, reversalAmplitude, phaseRad,
     mescCode, mescComment, stimKind, pairMembership,
   };
 
