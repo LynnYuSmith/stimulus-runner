@@ -83,11 +83,26 @@ test("each logged epoch is POSTed, with the column names the pipeline's reader e
             "session id is not a stamped, disambiguated one: " + session);
   assert.strictEqual(rows.length, 1);
   for (const col of ["n", "wallclock", "unix_ms", "type", "direction_deg", "orientation_deg",
-                     "duration_s", "spatial_freq_cpd", "temporal_freq_hz", "contrast"]) {
+                     "duration_s", "spatial_freq_cpp", "temporal_freq_hz", "contrast",
+                     "waveform"]) {
     assert.ok(col in rows[0], "the sent row is missing " + col);
   }
   assert.strictEqual(rows[0].direction_deg, 135);
   assert.strictEqual(rows[0].duration_s, 4);
+});
+
+test("a grating's waveform is written into its row, so a session says whether it was binary or sine", () => {
+  const { f, t } = page();
+  t.logEntry({ type: "moving", orientation: 0, duration: 4, sf: 0.02, tf: 1, contrast: 1,
+               waveform: "sinusoid" });
+  t.logEntry({ type: "grey" });
+  const rows = f.posts().map(p => p.body.rows).flat();
+  const moving = rows.find(r => r.type === "moving");
+  const grey = rows.find(r => r.type === "grey");
+  assert.strictEqual(moving.waveform, "sinusoid");
+  assert.strictEqual(moving.spatial_freq_cpp, 0.02, "cycles per frame pixel, under its own name");
+  assert.ok(!("spatial_freq_cpd" in moving), "the old, misleading name is gone");
+  assert.strictEqual(grey.waveform, "", "a grey has no waveform");
 });
 
 test("a grey's duration, filled in when the next epoch starts, is sent again with the new one", () => {

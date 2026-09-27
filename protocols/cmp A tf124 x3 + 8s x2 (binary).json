@@ -1,0 +1,1248 @@
+{
+  "name": "cmp A tf124 x3 + 8s x2 (binary)",
+  "description": "Comparison session, part A. 8 directions x TF 1/2/4 Hz, 4 s on / 4 s grey, 3 repeats (each repeat all 24 conditions, order shuffled, seed 42); then 8 directions at 1 Hz for 8 s on / 4 s grey, 2 repeats. Run with the usual BINARY waveform, so it joins the data we already have. 1 Hz 4-s trials here = the reference for the 8-s ones.",
+  "blocks": [
+    {
+      "type": "black",
+      "orientation": null,
+      "duration": 27.0
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 225.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 45.0,
+      "sf": 0.02,
+      "tf": 4.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 270.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 315.0,
+      "sf": 0.02,
+      "tf": 4.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 180.0,
+      "sf": 0.02,
+      "tf": 2.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 135.0,
+      "sf": 0.02,
+      "tf": 2.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 225.0,
+      "sf": 0.02,
+      "tf": 4.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 135.0,
+      "sf": 0.02,
+      "tf": 4.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 180.0,
+      "sf": 0.02,
+      "tf": 4.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 225.0,
+      "sf": 0.02,
+      "tf": 2.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 0.0,
+      "sf": 0.02,
+      "tf": 2.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 180.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 315.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 90.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 135.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 0.0,
+      "sf": 0.02,
+      "tf": 4.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 315.0,
+      "sf": 0.02,
+      "tf": 2.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 45.0,
+      "sf": 0.02,
+      "tf": 2.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 270.0,
+      "sf": 0.02,
+      "tf": 2.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 90.0,
+      "sf": 0.02,
+      "tf": 2.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 90.0,
+      "sf": 0.02,
+      "tf": 4.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 0.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 45.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 270.0,
+      "sf": 0.02,
+      "tf": 4.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 135.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 315.0,
+      "sf": 0.02,
+      "tf": 4.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 90.0,
+      "sf": 0.02,
+      "tf": 2.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 45.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 315.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 0.0,
+      "sf": 0.02,
+      "tf": 4.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 225.0,
+      "sf": 0.02,
+      "tf": 2.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 225.0,
+      "sf": 0.02,
+      "tf": 4.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 270.0,
+      "sf": 0.02,
+      "tf": 2.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 135.0,
+      "sf": 0.02,
+      "tf": 4.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 225.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 180.0,
+      "sf": 0.02,
+      "tf": 4.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 0.0,
+      "sf": 0.02,
+      "tf": 2.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 270.0,
+      "sf": 0.02,
+      "tf": 4.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 180.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 90.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 45.0,
+      "sf": 0.02,
+      "tf": 2.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 315.0,
+      "sf": 0.02,
+      "tf": 2.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 135.0,
+      "sf": 0.02,
+      "tf": 2.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 180.0,
+      "sf": 0.02,
+      "tf": 2.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 45.0,
+      "sf": 0.02,
+      "tf": 4.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 0.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 90.0,
+      "sf": 0.02,
+      "tf": 4.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 270.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 0.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 270.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 45.0,
+      "sf": 0.02,
+      "tf": 4.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 90.0,
+      "sf": 0.02,
+      "tf": 4.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 90.0,
+      "sf": 0.02,
+      "tf": 2.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 270.0,
+      "sf": 0.02,
+      "tf": 4.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 225.0,
+      "sf": 0.02,
+      "tf": 2.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 315.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 180.0,
+      "sf": 0.02,
+      "tf": 4.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 180.0,
+      "sf": 0.02,
+      "tf": 2.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 225.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 45.0,
+      "sf": 0.02,
+      "tf": 2.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 315.0,
+      "sf": 0.02,
+      "tf": 4.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 45.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 135.0,
+      "sf": 0.02,
+      "tf": 2.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 0.0,
+      "sf": 0.02,
+      "tf": 2.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 315.0,
+      "sf": 0.02,
+      "tf": 2.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 90.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 135.0,
+      "sf": 0.02,
+      "tf": 4.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 270.0,
+      "sf": 0.02,
+      "tf": 2.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 135.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 225.0,
+      "sf": 0.02,
+      "tf": 4.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 0.0,
+      "sf": 0.02,
+      "tf": 4.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 180.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 315.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 8.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 180.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 8.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 270.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 8.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 45.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 8.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 0.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 8.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 90.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 8.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 225.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 8.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 135.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 8.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 0.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 8.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 225.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 8.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 180.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 8.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 45.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 8.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 315.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 8.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 270.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 8.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 135.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 8.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 90.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 8.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    }
+  ]
+}

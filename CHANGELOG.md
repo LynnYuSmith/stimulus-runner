@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+**The log says which waveform was shown, and names its spatial frequency for what it is.**
+The waveform (binary or sinusoid) is a screen-wide setting, and nothing in the trial log recorded
+it — afterwards a session could not say whether its gratings were binary or sine, and a binary
+plaid is a three-level chequer rather than the plaid of the literature. Every grating's row now
+carries `waveform` (`square` / `sinusoid`; empty for greys and blacks). The spatial-frequency
+column was called `spatial_freq_cpd` but holds cycles per **frame pixel** (0.02 = three cycles
+across the screen), which reads as half the true value in cycles/degree; it is now
+`spatial_freq_cpp`, in the page's log, the exported CSV and the server's recovered CSV alike.
+The pipeline's reader accepts both names. Two comparison protocols join the library:
+`cmp A tf124 x3 + 8s x2 (binary)` and `cmp B plaids 90+120 + components x3 (SINUSOID)`.
+
 **Each grating starts at a phase you set.** *Start phase* and, for a plaid, *Its start phase*
 put each grating at its own point in its cycle at onset — 0° a rising zero crossing at the
 frame's top-left, 90° a peak, 180° the falling crossing, 270° a trough. The two are

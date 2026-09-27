@@ -1250,10 +1250,11 @@ if(ROLE === 'stim'){
   }
   const toWire = r => ({ n:r.n, wallclock:r.wall, unix_ms:r.ms, type:r.type,
     direction_deg:r.ori ?? null, orientation_deg:r.ori ?? null, duration_s:r.dur ?? null,
-    spatial_freq_cpd:r.sf ?? null, temporal_freq_hz:r.tf ?? null, contrast:r.contrast ?? null,
+    spatial_freq_cpp:r.sf ?? null, temporal_freq_hz:r.tf ?? null, contrast:r.contrast ?? null,
     stim_kind:r.kind||'', stim_code:r.code||'', pair_code:r.pairCode||'', pair_part:r.pairPart ?? null,
     plaid_direction_deg:r.plaidDir ?? null, plaid_temporal_freq_hz:r.plaidTf ?? null,
-    start_phase_deg:r.phaseDeg ?? null, plaid_start_phase_deg:r.plaidPhaseDeg ?? null });
+    start_phase_deg:r.phaseDeg ?? null, plaid_start_phase_deg:r.plaidPhaseDeg ?? null,
+    waveform:r.wave || '' });
   function persist(batch){
     try{
       const seq = ++saveSeq;
@@ -1299,7 +1300,8 @@ if(ROLE === 'stim'){
      second half is no longer labelled "contrast" as though it were a third sort of stimulus. */
   function logEntry({type, orientation=null, duration=null, sf=null, tf=null, contrast=null,
                      kind=null, code=null, pairsWithPrevious=false,
-                     plaidDir=null, plaidTf=null, phaseDeg=null, plaidPhaseDeg=null}){
+                     plaidDir=null, plaidTf=null, phaseDeg=null, plaidPhaseDeg=null,
+                     waveform=null}){
     const now=new Date();
     /* ISO 8601 in LOCAL time, with the date. The old form was time-of-day only, so a session
        running past midnight produced timestamps that sort wrongly and cannot be placed on a
@@ -1322,7 +1324,11 @@ if(ROLE === 'stim'){
                plaidDir: plaidDir==null ? null : +plaidDir,
                plaidTf: plaidTf==null ? null : +plaidTf,
                phaseDeg: phaseDeg==null ? null : +phaseDeg,
-               plaidPhaseDeg: plaidPhaseDeg==null ? null : +plaidPhaseDeg};
+               plaidPhaseDeg: plaidPhaseDeg==null ? null : +plaidPhaseDeg,
+               /* binary or sinusoid: a screen-wide setting, so without this column nothing
+                  afterwards says which a session was -- and a binary plaid is a different
+                  stimulus from the literature's. Written for gratings; empty otherwise. */
+               wave: waveform || ''};
     /* The pair is only known when its SECOND block starts, so the first block's row is amended
        here and sent again. The server replays a repeated `n` as the later value, which is the
        same route the retroactive duration above already takes. */
@@ -1353,6 +1359,7 @@ if(ROLE === 'stim'){
               phaseDeg: +(tr.phaseDeg||0), plaidPhaseDeg: tr.plaid ? +(tr.phase2Deg||0) : null,
               kind: window.STIMPROTOCOL.stimKind(block),
               code: window.STIMPROTOCOL.mescCode(block),
+              waveform: cfg.waveform || 'square',
               pairsWithPrevious: !!tr.contrastHalf}); }
   /* Clear = a session boundary, so it must clear everything that carries across one.
      Before, it emptied `rows` only: `logSeq` kept counting and `playedEvents` kept growing, so
@@ -1387,11 +1394,11 @@ if(ROLE === 'stim'){
        fold 225 into 45 by accident. orientation_deg is kept alongside it, unchanged, so
        anything already reading that name keeps working. */
     const head='n,wallclock,unix_ms,type,direction_deg,orientation_deg,duration_s,'
-      +'spatial_freq_cpd,temporal_freq_hz,contrast,stim_kind,stim_code,pair_code,pair_part,'
-      +'plaid_direction_deg,plaid_temporal_freq_hz,start_phase_deg,plaid_start_phase_deg';
+      +'spatial_freq_cpp,temporal_freq_hz,contrast,stim_kind,stim_code,pair_code,pair_part,'
+      +'plaid_direction_deg,plaid_temporal_freq_hz,start_phase_deg,plaid_start_phase_deg,waveform';
     const body=rows.map(r=>[r.n,r.wall,r.ms,r.type,r.ori,r.ori,r.dur,r.sf,r.tf,r.contrast,
                            r.kind||'',r.code||'',r.pairCode||'',r.pairPart??'',
-                           r.plaidDir??'',r.plaidTf??'',r.phaseDeg??'',r.plaidPhaseDeg??'']
+                           r.plaidDir??'',r.plaidTf??'',r.phaseDeg??'',r.plaidPhaseDeg??'',r.wave||'']
       .join(',')).join('\n');
     download('stimlog.csv', head+'\n'+body, 'text/csv');
   });

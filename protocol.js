@@ -256,7 +256,7 @@
       blocks.push({
         type: it.type, orientation_deg: Number(it.orientation), duration_s: d,
         start_time_s: t, end_time_s: t + d,
-        spatial_freq_cpd: Number(it.sf), temporal_freq_hz: Number(it.tf),
+        spatial_freq_cpp: Number(it.sf), temporal_freq_hz: Number(it.tf),
         contrast: Number(it.contrast),
       });
       t += d;

@@ -148,7 +148,8 @@ turns red on failure.
 | `stim_code` | the block's own code: `135`, `0p90` |
 | `pair_code`, `pair_part` | the contrast pair it belongs to, and `1` or `2` within it |
 | `plaid_direction_deg`, `plaid_temporal_freq_hz` | the second grating |
-| `direction_deg`, `duration_s`, `spatial_freq_cpd`, `temporal_freq_hz`, `contrast` | the first |
+| `direction_deg`, `duration_s`, `spatial_freq_cpp`, `temporal_freq_hz`, `contrast` | the first |
+| `waveform` | `square` (binary) or `sinusoid` — a screen-wide setting, recorded per grating |
 
 A pair is only known when its second block starts, so the first block's row is amended and
 re-sent; the server replays a repeated `n` as the later value.

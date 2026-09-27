@@ -119,7 +119,7 @@ def epoch(n, type_="moving", ori=135, dur=4.0, contrast=1.0):
     return {"n": n, "wallclock": "2026-09-18T12:00:%02d.000" % n,
             "unix_ms": 1758000000000 + n * 1000,
             "type": type_, "direction_deg": ori, "orientation_deg": ori, "duration_s": dur,
-            "spatial_freq_cpd": 0.04, "temporal_freq_hz": 2.0, "contrast": contrast}
+            "spatial_freq_cpp": 0.04, "temporal_freq_hz": 2.0, "contrast": contrast}
 
 
 print("crash tests for the durable trial log\n")
