@@ -70,6 +70,17 @@ LOG_DIR = Path(os.environ.get("STIMULUS_RUNNER_LOG_DIR") or (ROOT / "logs"))
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 DEFAULT_PORT = 8000
+
+# LabChart comments: on when labchart.txt holds the comment agent's address (see labchart_comments.py).
+# The embeddable Windows Python does not put this script's folder on sys.path, so do it here.
+sys.path.insert(0, str(ROOT))
+try:
+    import labchart_comments
+    _target = labchart_comments.read_target(ROOT)
+    FORWARDER = labchart_comments.CommentForwarder(_target, LOG_DIR) if _target else None
+except Exception as _e:                          # never let the comment side stop the runner
+    FORWARDER = None
+    print(f"  LabChart comments disabled: {_e}", file=sys.stderr)
 MAX_BODY_BYTES = 1_048_576   # 1 MB cap on a POST body — protocols are tiny; reject anything larger
 DRAIN_LIMIT_BYTES = 16_777_216   # read and discard at most this much of an oversized body
 
@@ -407,6 +418,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 # bug we are fixing, so the failure has to reach the operator, not the console.
                 warn(f"COULD NOT WRITE THE TRIAL LOG {jsonl.name!r}: {e}")
                 return self._json({"error": f"could not append: {e}"}, 500)
+            if FORWARDER is not None:            # after the log is safe; queued, never blocking
+                FORWARDER.offer(data.get("session"), rows)
             try:
                 write_stimlog_csv(replay_stimlog(jsonl), csv_path)
             except Exception as e:
@@ -579,6 +592,10 @@ def main():
     print(f"  page:      {url}")
     print(f"  protocols: {PROTO_DIR}")
     print(f"  trial log: {LOG_DIR}   (written as it plays — survives a frozen browser)")
+    if FORWARDER is not None:
+        print(f"  LabChart:  comments to {FORWARDER.target} — {FORWARDER.ping()}")
+    else:
+        print("  LabChart:  comments off (no labchart.txt)")
     if open_browser:
         opened = open_in_browser(url)
         print(f"  opening:   {opened}")

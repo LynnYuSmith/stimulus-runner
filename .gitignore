@@ -10,3 +10,9 @@ python-win32/
 python-win64/
 runner-log.txt
 logs/
+
+# site-specific: the LabChart PC address turns comments on
+labchart.txt
+labchart_agent/agent-log.txt
+labchart_agent/comments.csv
+labchart_agent/fake_comments.txt

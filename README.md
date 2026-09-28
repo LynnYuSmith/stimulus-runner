@@ -119,6 +119,14 @@ button.
 A rest block separates entries. `c` is a relation between two blocks, derived from order, not a
 property of either.
 
+## LabChart comments
+
+Optional: every played block also goes into the LabChart recording as a comment, at its onset
+(`#17 moving 45° · TF 2 Hz · C 50% · 4 s · sine · [M045]`). On the LabChart PC run the comment agent
+(`labchart_agent/`, see its README); on this PC copy `labchart.txt.example` to `labchart.txt` with the
+address the agent prints, and check with `SEND-TEST-COMMENT.bat`. The comment carries the block's identity;
+its time is still the photodiode's. Off without `labchart.txt`.
+
 ## Corner marker
 
 A red square flashes in a corner (top-right by default) at every onset, coded by pulse count.

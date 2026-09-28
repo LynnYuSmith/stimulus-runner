@@ -1,0 +1,3 @@
+# Copy this file to labchart.txt to send every played block to LabChart as a comment.
+# The address the comment agent prints on the LabChart PC (START-AGENT.bat), e.g.:
+10.1.2.3:8766

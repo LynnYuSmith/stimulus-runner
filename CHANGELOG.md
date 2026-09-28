@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+**Every played block can go into LabChart as a comment, the moment it starts.** With a
+`labchart.txt` next to `serve.py` holding the address of the new comment agent on the LabChart PC
+(`labchart_agent/`, its own portable folder), the server hands each block's first appearance to the
+agent, which puts `#17 moving 45° · TF 2 Hz · C 50% · … · [M045]` into the running LabChart 8
+recording through LabChart's own `AppendComment`. The comment says what played; when it played is
+still the photodiode's, and the block number ties the two. Rows the page re-sends (a grey's closed
+duration, a pair's code) never make a second comment. Sending runs on its own thread with a short
+timeout, so an unreachable LabChart PC never holds up the page or the trial log, and every attempt
+is written to `logs/<session>.labchart.jsonl`. `SEND-TEST-COMMENT.bat` checks the path before a
+session; on the LabChart PC, `START-COM-TEST.bat` checks LabChart alone, without any network.
+Without `labchart.txt` nothing changes. Tested end to end against a fake LabChart
+(`test/labchart_comments.test.py`); not yet on the rig.
+
 **The log says which waveform was shown, and names its spatial frequency for what it is.**
 The waveform (binary or sinusoid) is a screen-wide setting, and nothing in the trial log recorded
 it — afterwards a session could not say whether its gratings were binary or sine, and a binary
