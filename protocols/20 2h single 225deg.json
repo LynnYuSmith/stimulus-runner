@@ -1,0 +1,15 @@
+{
+  "name": "20 2h single 225deg",
+  "blocks": [
+    {
+      "type": "moving",
+      "orientation": 225.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 7200.0,
+      "moving": true
+    }
+  ],
+  "description": "adaptation exposure: one grating, 2 h, no imaging"
+}
