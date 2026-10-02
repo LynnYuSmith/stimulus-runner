@@ -1,5 +1,10 @@
 """LabChart comments, runner side to agent, with a fake LabChart: one comment per block, in order,
 re-sent rows never duplicated, and an unreachable agent never holding anything up."""
+import os
+# A system proxy must not catch the comments: on the rig's Windows PC urllib picks one up from the registry,
+# and the comment then never reaches the LabChart PC next door (2026-10-02). A dead proxy here proves it.
+os.environ["HTTP_PROXY"] = os.environ["http_proxy"] = "http://127.0.0.1:9"
+os.environ.pop("NO_PROXY", None); os.environ.pop("no_proxy", None)
 import json
 import os
 import socket

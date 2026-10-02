@@ -16,3 +16,6 @@ labchart.txt
 labchart_agent/agent-log.txt
 labchart_agent/comments.csv
 labchart_agent/fake_comments.txt
+
+# the comment agent's allowed senders on the rig (computer names): local, never in git
+labchart_agent/allow.txt

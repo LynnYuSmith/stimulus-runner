@@ -19,6 +19,16 @@ import threading
 import time
 import urllib.error
 import urllib.request
+
+# The agent is on the lab network, one hop away. Never through a proxy: on a university Windows PC Python
+# picks up the system proxy from the registry, and the proxy cannot (or will not) reach a PC next door —
+# the comment then fails with a proxy error that reads like "PC not found" (2026-10-02).
+_DIRECT = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
+def urlopen(req, timeout):
+    """urllib.request.urlopen, but straight to the agent, never via a proxy."""
+    return _DIRECT.open(req, timeout=timeout)
 from pathlib import Path
 
 AGENT_PORT = 8766
@@ -62,16 +72,45 @@ def comment_text(row: dict) -> str:
     return " · ".join(parts)[:250]
 
 
+def _config_file(root: Path) -> Path | None:
+    """labchart.txt — or labchart.txt.txt, which is what Notepad makes of it on a Windows that hides
+    extensions (it happened on the rig, 2026-10-02)."""
+    for name in ("labchart.txt", "labchart.txt.txt", "labchart"):
+        f = Path(root) / name
+        if f.is_file():
+            return f
+    return None
+
+
+def _read_text_any(f: Path) -> str:
+    """UTF-8 (with or without BOM) or UTF-16, which Notepad writes when "Unicode" is chosen."""
+    raw = f.read_bytes()
+    if raw[:2] in (b"\xff\xfe", b"\xfe\xff"):
+        return raw.decode("utf-16")
+    return raw.decode("utf-8-sig", errors="replace")
+
+
 def read_target(root: Path) -> str | None:
     """host:port from labchart.txt (first line that is not blank or a # comment), or None = off."""
-    f = Path(root) / "labchart.txt"
-    if not f.is_file():
+    f = _config_file(root)
+    if f is None:
         return None
-    for line in f.read_text(encoding="utf-8-sig").splitlines():
-        line = line.strip()
+    for line in _read_text_any(f).splitlines():
+        line = line.strip().strip("\u200b\ufeff")
         if line and not line.startswith("#"):
             return line if ":" in line else f"{line}:{AGENT_PORT}"
     return None
+
+
+def explain_missing_target(root: Path) -> str:
+    """Why read_target found nothing — what is actually in the folder."""
+    near = sorted(p.name for p in Path(root).iterdir() if p.name.lower().startswith("labchart"))
+    f = _config_file(root)
+    if f is not None:
+        return (f"{f.name} is there but has no address line (every line is blank or starts with #). "
+                f"Put the address on a line of its own, without #, e.g. 10.1.2.3:8766")
+    return (f"no labchart.txt in {root}. Files here starting with 'labchart': {near or 'none'}. "
+            f"Copy labchart.txt.example to labchart.txt in THIS folder and write the address in it.")
 
 
 class CommentForwarder:
@@ -86,7 +125,7 @@ class CommentForwarder:
 
     def ping(self) -> str:
         try:
-            with urllib.request.urlopen(f"http://{self.target}/ping", timeout=self.timeout) as r:
+            with urlopen(f"http://{self.target}/ping", timeout=self.timeout) as r:
                 d = json.loads(r.read().decode("utf-8"))
             return (f"agent reachable; LabChart {'connected, document ' + repr(d.get('document')) if d.get('labchart') else 'NOT connected: ' + str(d.get('error'))}")
         except Exception as e:
@@ -127,7 +166,7 @@ class CommentForwarder:
                 req = urllib.request.Request(self.url, method="POST",
                                              data=json.dumps({"n": n, "text": text, "channel": -1}).encode("utf-8"),
                                              headers={"Content-Type": "application/json"})
-                with urllib.request.urlopen(req, timeout=self.timeout) as r:
+                with urlopen(req, timeout=self.timeout) as r:
                     reply = json.loads(r.read().decode("utf-8"))
                 entry.update(ok=bool(reply.get("ok")), agent=reply)
             except Exception as e:

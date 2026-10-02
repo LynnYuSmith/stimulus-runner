@@ -30,3 +30,5 @@ jobs:
           python3 -m py_compile labchart_comments.py send_test_comment.py labchart_agent/labchart_agent.py
       - name: LabChart comments, end to end against a fake LabChart
         run: python3 test/labchart_comments.test.py
+      - name: The comment agent lets in only the computers it is told to
+        run: python3 test/labchart_agent_allow.test.py

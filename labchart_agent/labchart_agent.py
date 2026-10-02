@@ -4,7 +4,8 @@ recording as a comment, through LabChart's own automation interface (ADIChart.Ap
 ActiveDocument.AppendComment(text, channel); channel -1 = all channels).
 
     python labchart_agent.py                    # listen on port 8766 for the stimulus runner
-    python labchart_agent.py --allow 10.1.2.3   # only accept that address (the stimulus PC)
+    python labchart_agent.py --allow STIM-PC       # only the stimulus PC (a computer name or an address)
+    (or write that name into allow.txt next to this file — kept out of git — and START-AGENT.bat picks it up)
     python labchart_agent.py --com-test         # no network: put one comment into LabChart and exit
     python labchart_agent.py --fake             # no LabChart: record the comments to fake_comments.txt
 
@@ -142,6 +143,57 @@ def record(peer, n, text, result):
                     result.get("com_ms", ""), result.get("error", ""), text])
 
 
+class Allow:
+    """Who may send comments: addresses and/or computer names (e.g. STIM-PC).
+
+    A name is looked up when the agent starts and again whenever a request comes from an address not yet
+    known (at most every 10 s) — on a university network a PC can get a new address after a restart. A name
+    that cannot be looked up lets nobody in, and says so."""
+
+    def __init__(self, text):
+        self.entries = [x.strip() for x in str(text or "").split(",") if x.strip()]
+        self.ips, self._last = set(), 0.0
+        self.resolve(loud=True)
+
+    def __bool__(self):
+        return bool(self.entries)
+
+    @staticmethod
+    def _is_ip(x):
+        for fam in (socket.AF_INET, socket.AF_INET6):
+            try:
+                socket.inet_pton(fam, x)
+                return True
+            except OSError:
+                pass
+        return False
+
+    def resolve(self, loud=False):
+        ips = set()
+        for e in self.entries:
+            if self._is_ip(e):
+                ips.add(e)
+                continue
+            try:
+                found = {ai[4][0] for ai in socket.getaddrinfo(e, None)}
+                ips |= found
+                if loud:
+                    log(f"allowed sender {e} = {', '.join(sorted(found))}")
+            except OSError as exc:
+                log(f"WARNING: cannot look up the computer name {e!r} ({exc}); it cannot send until it can be "
+                    f"found. Use its address instead (ipconfig on that PC) if this persists.")
+        self.ips, self._last = ips, time.monotonic()
+        return ips
+
+    def permits(self, peer):
+        if peer in self.ips:
+            return True
+        if any(not self._is_ip(e) for e in self.entries) and time.monotonic() - self._last > 10:
+            self.resolve()
+            return peer in self.ips
+        return False
+
+
 class Handler(http.server.BaseHTTPRequestHandler):
     def _send(self, obj, code=200):
         body = json.dumps(obj).encode("utf-8")
@@ -153,8 +205,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def _allowed(self):
         peer = self.client_address[0]
-        if ALLOW and peer not in ALLOW:
-            log(f"refused {peer} (not in --allow)")
+        if ALLOW and not ALLOW.permits(peer):
+            log(f"refused {peer} (not in --allow {', '.join(ALLOW.entries)})")
             self._send({"ok": False, "error": "address not allowed"}, 403)
             return False
         return True
@@ -210,12 +262,18 @@ def main(argv=None):
     global COM, ALLOW
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--port", type=int, default=PORT)
-    ap.add_argument("--allow", default="", help="comma-separated addresses allowed to send (default: any)")
+    ap.add_argument("--allow", default="", help="comma-separated computer names or addresses allowed to send (default: any)")
     ap.add_argument("--com-test", action="store_true", help="put one comment into LabChart and exit")
     ap.add_argument("--fake", action="store_true", help="no LabChart: write comments to fake_comments.txt")
     a = ap.parse_args(argv)
     COM = ComThread(a.fake)
-    ALLOW = {x.strip() for x in a.allow.split(",") if x.strip()}
+    allow = a.allow
+    if not allow:                                # the rig's own list, kept out of the repository
+        f = Path(__file__).resolve().parent / "allow.txt"
+        if f.is_file():
+            allow = ",".join(x.strip() for x in f.read_text(encoding="utf-8-sig").splitlines()
+                             if x.strip() and not x.strip().startswith("#"))
+    ALLOW = Allow(allow)
 
     if a.com_test:
         r = COM.call("ping")
@@ -228,7 +286,7 @@ def main(argv=None):
     httpd = http.server.ThreadingHTTPServer(("0.0.0.0", a.port), Handler)
     log(f"comment agent listening on port {a.port}; this PC's address(es): {', '.join(addresses())}")
     log(f"put that address into labchart.txt next to serve.py on the stimulus PC, e.g.  {addresses()[0]}:{a.port}")
-    log("allowed senders: " + (", ".join(sorted(ALLOW)) if ALLOW else "ANY (use --allow <stimulus PC address> to restrict)"))
+    log("allowed senders: " + (", ".join(ALLOW.entries) if ALLOW else "ANY (use --allow <stimulus PC name or address> to restrict)"))
     log(f"LabChart: {COM.call('ping')}")
     try:
         httpd.serve_forever()
