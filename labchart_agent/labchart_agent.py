@@ -1,7 +1,7 @@
 """
 The comment agent: runs on the LabChart PC and puts every line it is sent into the running LabChart
 recording as a comment, through LabChart's own automation interface (ADIChart.Application ->
-ActiveDocument.AppendComment(text, channel); channel -1 = all channels).
+ActiveDocument.AppendComment(text, channel); channel -1 = all channels; --channel sets it, e.g. the photodiode).
 
     python labchart_agent.py                    # listen on port 8766 for the stimulus runner
     python labchart_agent.py --allow STIM-PC       # only the stimulus PC (a computer name or an address)
@@ -131,6 +131,7 @@ class ComThread:
 
 COM = None
 ALLOW: set[str] = set()
+CHANNEL = -1                                      # the LabChart channel comments go on; -1 = all
 
 
 def record(peer, n, text, result):
@@ -227,7 +228,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             n = int(self.headers.get("Content-Length") or 0)
             data = json.loads(self.rfile.read(min(n, 64 * 1024)).decode("utf-8"))
             text = str(data.get("text", ""))[:MAX_TEXT]
-            channel = int(data.get("channel", -1))
+            channel = int(data.get("channel", CHANNEL))
         except Exception as e:
             return self._send({"ok": False, "error": f"bad request: {e}"}, 400)
         if not text:
@@ -259,14 +260,18 @@ def addresses():
 
 
 def main(argv=None):
-    global COM, ALLOW
+    global COM, ALLOW, CHANNEL
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--port", type=int, default=PORT)
     ap.add_argument("--allow", default="", help="comma-separated computer names or addresses allowed to send (default: any)")
+    ap.add_argument("--channel", type=int, default=-1,
+                    help="LabChart channel the comments go on, numbered as LabChart shows them "
+                         "(e.g. 1 = the photodiode); -1 = all channels (default)")
     ap.add_argument("--com-test", action="store_true", help="put one comment into LabChart and exit")
     ap.add_argument("--fake", action="store_true", help="no LabChart: write comments to fake_comments.txt")
     a = ap.parse_args(argv)
     COM = ComThread(a.fake)
+    CHANNEL = a.channel
     allow = a.allow
     if not allow:                                # the rig's own list, kept out of the repository
         f = Path(__file__).resolve().parent / "allow.txt"
@@ -279,7 +284,7 @@ def main(argv=None):
         r = COM.call("ping")
         log(f"COM test: {r}")
         if r.get("labchart"):
-            r = COM.call("comment", (f"COM test from the comment agent, {datetime.now():%H:%M:%S}", -1))
+            r = COM.call("comment", (f"COM test from the comment agent, {datetime.now():%H:%M:%S}", CHANNEL))
             log(f"COM test comment: {r}")
         return 0 if r.get("ok") or r.get("labchart") else 1
 
@@ -287,6 +292,7 @@ def main(argv=None):
     log(f"comment agent listening on port {a.port}; this PC's address(es): {', '.join(addresses())}")
     log(f"put that address into labchart.txt next to serve.py on the stimulus PC, e.g.  {addresses()[0]}:{a.port}")
     log("allowed senders: " + (", ".join(ALLOW.entries) if ALLOW else "ANY (use --allow <stimulus PC name or address> to restrict)"))
+    log(f"comments go on LabChart channel {CHANNEL}" + (" (all channels)" if CHANNEL == -1 else ""))
     log(f"LabChart: {COM.call('ping')}")
     try:
         httpd.serve_forever()

@@ -21,7 +21,7 @@ few ms after the onset (network + LabChart).
    then run `SEND-TEST-COMMENT.bat`: three test comments should appear in LabChart.
 4. From then on the runner sends every block by itself; its banner says `LabChart: comments to …`.
 
-`--allow <stimulus PC name or address>` restricts who may send; or put the stimulus PC's name (one per line) into `allow.txt` next to the agent and `START-AGENT.bat` uses it. A name is looked up at start and again if the PC's address changes; a name that cannot be found lets nobody in. Logs: `agent-log.txt`, `comments.csv` (every comment
+`--channel 1` puts every comment on that LabChart channel (numbered as LabChart shows them — e.g. the photodiode) instead of all channels; check where it lands once with `START-COM-TEST.bat --channel 1`. `--allow <stimulus PC name or address>` restricts who may send; or put the stimulus PC's name (one per line) into `allow.txt` next to the agent and `START-AGENT.bat` uses it. A name is looked up at start and again if the PC's address changes; a name that cannot be found lets nobody in. Logs: `agent-log.txt`, `comments.csv` (every comment
 and whether LabChart took it) here, and `logs/<session>.labchart.jsonl` on the stimulus PC (every block,
 sent or not, with round-trip time). An unreachable agent never holds up the runner or its trial log.
 

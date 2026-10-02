@@ -7,6 +7,7 @@ import tempfile
 import threading
 import time
 import urllib.error
+import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -51,3 +52,19 @@ for allow, want in cases:
     print(f"--allow {allow:20s} -> {got} (want {want})")
     assert got == want, (allow, got)
 print("ALL GOOD")
+
+# --channel: every comment goes on that LabChart channel (the photodiode), unless a request names another
+import json as _json
+port = free_port()
+threading.Thread(target=labchart_agent.main, args=(["--fake", "--port", str(port), "--channel", "1"],),
+                 daemon=True).start()
+time.sleep(1.0)
+req = urllib.request.Request(f"http://127.0.0.1:{port}/comment", method="POST",
+                             data=_json.dumps({"n": "t1", "text": "on the photodiode"}).encode(),
+                             headers={"Content-Type": "application/json"})
+with labchart_comments.urlopen(req, timeout=2) as r:
+    assert _json.loads(r.read())["ok"]
+line = [l for l in (Path(labchart_agent.OUT) / "fake_comments.txt").read_text().splitlines() if "on the photodiode" in l][-1]
+print("fake LabChart got:", line)
+assert line.split("\t")[1] == "1"
+print("ALL GOOD (channel)")
