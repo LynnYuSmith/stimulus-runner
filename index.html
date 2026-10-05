@@ -1242,6 +1242,9 @@ if(ROLE === 'stim'){
       +'-'+Math.random().toString(36).slice(2,6).padEnd(4,'0'); };
   let sessionId = stamp(sessionStartedAt);
   const unsaved = new Map();     // n -> {row, seq}: sent but not yet confirmed
+  let leaving = false;           // true once the page is going away: only then use keepalive (see flushSession)
+  // a request that hangs must fail, not wait for ever: a stuck save would otherwise look like a quiet one
+  const timeoutSignal = ms => (window.AbortSignal && AbortSignal.timeout) ? AbortSignal.timeout(ms) : undefined;
   let saveSeq = 0;
   function setSave(cls, text, title){
     if(!saveBadge) return;
@@ -1261,8 +1264,9 @@ if(ROLE === 'stim'){
       for(const r of batch) if(r) unsaved.set(r.n, {row:r, seq});
       const sent = [...unsaved.values()].map(e => e.row);
       const keys = sent.map(r => r.n);
-      window.fetch('/api/stimlog', { method:'POST', keepalive:true,
-          headers:{'Content-Type':'application/json'},
+      if(!sent.length) return;
+      window.fetch('/api/stimlog', { method:'POST', keepalive:leaving,
+          headers:{'Content-Type':'application/json'}, signal: timeoutSignal(8000),
           body: JSON.stringify({ session: sessionId, rows: sent.map(toWire) }) })
         .then(r => r && r.ok ? r.json() : Promise.reject(new Error('HTTP ' + (r && r.status))))
         .then(d => {
@@ -1873,14 +1877,20 @@ if(ROLE === 'stim'){
     clearTimeout(sessTimer);
     sessTimer = setTimeout(flushSession, 400);
   }
+  /* keepalive ONLY while the page is going away. Chrome holds every keepalive request's body in
+     one 64 KB per-page quota until its reply has been READ, and this PUT never read its reply:
+     each ~3.3 KB cockpit save stayed "in flight", and after ~20 blocks the quota was full and
+     every request from the page -- this one, the trial log, and so the LabChart comments --
+     failed with "Failed to fetch" for the rest of the session (cm027 2026-10-02 and 10-05,
+     both after block 27; reproduced in Chrome on 2026-10-05 at block ~23). */
   function flushSession(){
     if(!sessDirty || sessInflight) return;
     sessDirty = false; sessInflight = true;
     const body = JSON.stringify(sessionState());
     try{
-      window.fetch('/api/session/'+encodeURIComponent(sessionId), { method:'PUT', keepalive:true,
-          headers:{'Content-Type':'application/json'}, body })
-        .then(r=>{ if(!(r && r.ok)) throw new Error('HTTP '+(r&&r.status)); })
+      window.fetch('/api/session/'+encodeURIComponent(sessionId), { method:'PUT', keepalive:leaving,
+          headers:{'Content-Type':'application/json'}, body, signal: timeoutSignal(8000) })
+        .then(r=> r.text().then(()=>{ if(!(r && r.ok)) throw new Error('HTTP '+(r&&r.status)); }))
         .catch(err=> setSave('bad', 'session NOT saved', 'the cockpit state could not be written ('+err.message+')'))
         .finally(()=>{ sessInflight=false; if(sessDirty) flushSession(); });
     }catch(err){ sessInflight=false; setSave('bad','session NOT saved', String(err&&err.message||err)); }
@@ -1893,7 +1903,7 @@ if(ROLE === 'stim'){
   document.querySelectorAll('#moveSeg button, #waveSeg button, #plaidSeg button, #plaidOnSeg button')
     .forEach(b=>b.addEventListener('click', saveSession));
   foldCards().forEach(d=>d.addEventListener('toggle', saveSession));
-  window.addEventListener('pagehide', ()=>{ sessDirty = true; flushSession(); });
+  window.addEventListener('pagehide', ()=>{ leaving = true; sessDirty = true; sessInflight = false; flushSession(); persist([]); });
 
   function applySession(st){
     // form first, so the queue's blocks are built against the right grey/screen settings
