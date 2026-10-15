@@ -515,8 +515,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
 
 def open_in_browser(url: str) -> str:
-    """Open the runner in a Chromium-based browser (Chrome, else Edge), for reliable
-    WebGL + fullscreen on the rig; fall back to the system default.
+    """Open the runner in a PRIVATE window of a Chromium-based browser (Chrome, else Edge), for
+    reliable WebGL + fullscreen on the rig; fall back to the system default and say so.
+
+    Private on purpose: every session starts from a clean page, never a stale cached copy of an
+    older runner, and the browser keeps no history of it. Nothing is lost: the page keeps no state
+    in the browser -- the trial log and the session live on disk, written by this server.
 
     Note: Internet Explorer CANNOT run this page (needs modern ES6+ JS and WebGL1). On Windows the
     modern equivalent is Edge (Chromium), which is used automatically if Chrome is absent.
@@ -530,15 +534,16 @@ def open_in_browser(url: str) -> str:
     #    and opens NOTHING — a silent failure. So resolve the real app ourselves.
     try:
         if system == "Darwin":
-            for app, label in (("Google Chrome", "Chrome"), ("Chromium", "Chromium"),
-                               ("Microsoft Edge", "Edge")):
+            for app, label, flag in (("Google Chrome", "Chrome", "--incognito"),
+                                     ("Chromium", "Chromium", "--incognito"),
+                                     ("Microsoft Edge", "Edge", "--inprivate")):
                 # -Ra resolves the app WITHOUT launching; only then open the URL in it
                 if subprocess.run(["open", "-Ra", app],
                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
-                    subprocess.run(["open", "-a", app, url])
-                    return label
+                    subprocess.run(["open", "-na", app, "--args", flag, url])
+                    return f"{label}, private window"
             subprocess.run(["open", url])          # system default browser
-            return "default browser"
+            return "default browser (NOT private)"
         if system == "Windows":
             candidates = [
                 (os.path.expandvars(r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"), "Chrome"),
@@ -549,24 +554,25 @@ def open_in_browser(url: str) -> str:
             ]
             for exe, label in candidates:
                 if os.path.exists(exe):
-                    subprocess.Popen([exe, url])
-                    return label
+                    flag = "--inprivate" if label == "Edge" else "--incognito"
+                    subprocess.Popen([exe, flag, url])
+                    return f"{label}, private window"
             os.startfile(url)   # system default browser
-            return "default browser"
+            return "default browser (NOT private)"
         # Linux / other
         for exe, label in (("google-chrome", "Chrome"), ("google-chrome-stable", "Chrome"),
                            ("chromium", "Chromium"), ("chromium-browser", "Chromium"),
                            ("microsoft-edge", "Edge")):
             if shutil.which(exe):
-                subprocess.Popen([exe, url])
-                return label
+                subprocess.Popen([exe, "--inprivate" if label == "Edge" else "--incognito", url])
+                return f"{label}, private window"
     except Exception as e:
         warn(f"preferred-browser launch failed ({e}); falling back to the system default")
 
     # 2) last resort: the OS default browser
     try:
         if webbrowser.open(url):
-            return "default browser"
+            return "default browser (NOT private)"
     except Exception as e:
         warn(f"system-default browser launch errored: {e}")
     warn(f"could not open a browser automatically — open this URL yourself: {url}")

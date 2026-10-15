@@ -15,7 +15,7 @@ rig setup.
 ## Running
 
 ```bash
-python serve.py               # http://127.0.0.1:8000, opens Chrome/Edge
+python serve.py               # http://127.0.0.1:8000, opens a private Chrome/Edge window
 python serve.py 8080
 python serve.py --no-browser
 ```

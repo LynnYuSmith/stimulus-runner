@@ -32,3 +32,5 @@ jobs:
         run: python3 test/labchart_comments.test.py
       - name: The comment agent lets in only the computers it is told to
         run: python3 test/labchart_agent_allow.test.py
+      - name: The runner opens in a private window (Chrome --incognito, Edge --inprivate)
+        run: python3 test/open_private.test.py
