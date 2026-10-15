@@ -174,6 +174,9 @@
     max-width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis}
   #logSaveState.ok{color:#7fd88f;border-color:#2f5f3a}
   #logSaveState.bad{color:#fff;background:#a01f2b;border-color:#d4404f;font-weight:700}
+  #lcState{margin-left:8px;font-size:12px;padding:3px 8px;border-radius:4px;border:1px solid #444;color:#aaa}
+  #lcState.ok{color:#7fd88f;border-color:#2f5f3a}
+  #lcState.bad{color:#fff;background:#a01f2b;border-color:#d4404f;font-weight:700}
   .logtools button{background:var(--panel-2);border:1px solid var(--border);color:var(--muted);
        border-radius:6px;padding:5px 9px;cursor:pointer;font-family:var(--mono);font-size:11px}
   .logtools button:hover{color:var(--ink);border-color:var(--accent)}
@@ -407,6 +410,7 @@
           <button id="expJson">Export JSON</button>
           <button id="clearLog">Clear</button>
           <span id="logSaveState" title="Where the log is being written on disk">not saving</span>
+          <span id="lcState" title="Are the block markers reaching LabChart?">LabChart: ?</span>
         </div>
         <div class="logscroll">
           <table>
@@ -1246,6 +1250,36 @@ if(ROLE === 'stim'){
   // a request that hangs must fail, not wait for ever: a stuck save would otherwise look like a quiet one
   const timeoutSignal = ms => (window.AbortSignal && AbortSignal.timeout) ? AbortSignal.timeout(ms) : undefined;
   let saveSeq = 0;
+  /* LabChart markers travel serve.py -> comment agent -> LabChart, after the log is on disk. A marker
+     that does not arrive used to be visible only in the server console; a session then ran for 100
+     minutes with markers for the first 3. Now every log reply carries the forwarder's state. */
+  const lcBadge = document.getElementById('lcState');
+  function setLabChart(st){
+    if(!lcBadge || !st) return;
+    if(st.configured === false){
+      lcBadge.className = ''; lcBadge.textContent = 'LabChart: off';
+      lcBadge.title = 'no labchart.txt beside serve.py: block markers are not sent'; return;
+    }
+    if(st.consecutive_failed > 0){
+      lcBadge.className = 'bad';
+      lcBadge.textContent = 'LabChart markers NOT arriving (' + st.consecutive_failed + ' in a row)';
+      lcBadge.title = (st.last_error || '') + ' — is LabChart open with a document, and the agent running? '
+        + 'The trial log is still being saved.';
+    } else if(st.sent > 0){
+      lcBadge.className = 'ok'; lcBadge.textContent = 'LabChart ✓ ' + st.sent;
+      lcBadge.title = 'markers sent to ' + (st.target || '?') + (st.failed ? ' (' + st.failed + ' failed earlier)' : '');
+    }
+  }
+  try{
+    window.fetch('/api/labchart').then(r => r && r.ok ? r.json() : null).then(d => {
+      if(!d) return;
+      if(d.configured === false) return setLabChart(d);
+      const okNow = /LabChart connected/.test(d.ping || '');
+      lcBadge.className = okNow ? 'ok' : 'bad';
+      lcBadge.textContent = okNow ? 'LabChart ready' : 'LabChart NOT ready';
+      lcBadge.title = d.ping || '';
+    }).catch(() => {});
+  }catch(_){}
   function setSave(cls, text, title){
     if(!saveBadge) return;
     saveBadge.className = cls; saveBadge.textContent = text;
@@ -1270,6 +1304,7 @@ if(ROLE === 'stim'){
           body: JSON.stringify({ session: sessionId, rows: sent.map(toWire) }) })
         .then(r => r && r.ok ? r.json() : Promise.reject(new Error('HTTP ' + (r && r.status))))
         .then(d => {
+          if(d && d.labchart) setLabChart(d.labchart);
           for(const k of keys){ const e = unsaved.get(k); if(e && e.seq <= seq) unsaved.delete(k); }
           if(unsaved.size === 0) setSave('ok', 'saved · ' + (d && d.file ? d.file : sessionId),
             'every epoch is on disk in logs/ as it plays');

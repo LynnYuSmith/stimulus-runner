@@ -360,6 +360,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 warn(f"protocol {p.name!r} is corrupt and could not be loaded: {e}")
                 return self._json({"error": f"protocol file is corrupt: {e}"}, 500)
+        if self.path == "/api/labchart":
+            # Before the run: is the comment agent there, and is LabChart open with a document?
+            if FORWARDER is None:
+                return self._json({"configured": False})
+            return self._json({"configured": True, "ping": FORWARDER.ping(), **FORWARDER.status()})
         if self.path == "/api/session":
             sid, state = latest_session()
             if sid is None:
@@ -425,7 +430,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 # The record itself is already safe on disk; only the convenience copy failed.
                 warn(f"trial log was saved but the CSV could not be rebuilt: {e}")
-            return self._json({"ok": True, "appended": len(rows), "file": jsonl.name})
+            return self._json({"ok": True, "appended": len(rows), "file": jsonl.name,
+                               "labchart": FORWARDER.status() if FORWARDER is not None else None})
         if self.path == "/api/protocols":
             if not self._host_ok():
                 return self._json({"error": "cross-site request refused"}, 403)

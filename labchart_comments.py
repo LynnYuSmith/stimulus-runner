@@ -121,6 +121,8 @@ class CommentForwarder:
         self.lock = threading.Lock()
         self.q: queue.Queue = queue.Queue(maxsize=10000)
         self.sent = self.failed = 0
+        self.consecutive_failed = 0
+        self.last_error = ""
         threading.Thread(target=self._run, name="labchart-comments", daemon=True).start()
 
     def ping(self) -> str:
@@ -130,6 +132,12 @@ class CommentForwarder:
             return (f"agent reachable; LabChart {'connected, document ' + repr(d.get('document')) if d.get('labchart') else 'NOT connected: ' + str(d.get('error'))}")
         except Exception as e:
             return f"agent NOT reachable ({e})"
+
+    def status(self) -> dict:
+        """What the page shows: are the markers reaching LabChart right now?"""
+        return {"target": self.target, "sent": self.sent, "failed": self.failed,
+                "consecutive_failed": self.consecutive_failed, "last_error": self.last_error,
+                "queued": self.q.qsize()}
 
     def offer(self, session: str, rows: list[dict]) -> int:
         """Queue a comment for every block number not seen before in this session. Never blocks."""
@@ -175,6 +183,9 @@ class CommentForwarder:
             entry["delay_after_onset_ms"] = round((time.time() - queued) * 1000, 1)
             if entry["ok"]:
                 self.sent += 1
+                self.consecutive_failed = 0
             else:
                 self.failed += 1
+                self.consecutive_failed += 1
+                self.last_error = str(entry.get("error") or (entry.get("agent") or {}).get("error") or "?")
             self._record(session, entry)
