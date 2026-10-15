@@ -28,15 +28,17 @@ def grey(s):
     return {"type": "grey", "orientation": None, "duration": float(s)}
 
 
-def grating(d, s):
-    return {"type": "moving", "orientation": float(d), "sf": 0.02, "tf": 1.0, "contrast": 1.0,
+def grating(d, s, tf=1.0):
+    return {"type": "moving", "orientation": float(d), "sf": 0.02, "tf": float(tf), "contrast": 1.0,
             "duration": float(s), "moving": True}
 
 
-def sweep_4s(order):
+def sweep_4s(order, tf=1.0):
+    """``order``: directions (all at ``tf``), or (direction, tf) pairs for a mixed run."""
     blocks = [grey(4)]
     for i, d in enumerate(order):
-        blocks += [grating(d, 4), grey(8 if i == len(order) - 1 else 4)]
+        dd, t = d if isinstance(d, tuple) else (d, tf)
+        blocks += [grating(dd, 4, t), grey(8 if i == len(order) - 1 else 4)]
     return blocks
 
 
@@ -58,6 +60,29 @@ def balanced_orders(n_runs, rng, tries=200000):
     raise RuntimeError("no balanced set")
 
 
+def balanced_mixed(rng, tfs=(1.0, 3.0)):
+    """Four runs of every direction at both TFs, shuffled and balanced by construction: for runs 1-2
+    the directions are split at random into halves A and B, run 1 opens with A at the first TF and B
+    at the second and run 2 the other way round; runs 3-4 do the same with a fresh split. So within a
+    run each TF has four gratings in the first half of the sweep, and across the four runs every
+    (direction, TF) is in the first half exactly twice: position in the sweep (adaptation, bleaching,
+    state) weighs on both TFs alike."""
+    t1, t2 = tfs
+    runs = []
+    for _ in range(2):
+        a = rng.sample(DIRS, len(DIRS))
+        A, B = a[:4], a[4:]
+        for first, second in ((A, B), (B, A)):
+            head = [(d, t1) for d in first] + [(d, t2) for d in second]
+            tail = [(d, t2) for d in first] + [(d, t1) for d in second]
+            runs.append(rng.sample(head, len(head)) + rng.sample(tail, len(tail)))
+    pairs = [(d, t) for t in tfs for d in DIRS]
+    assert all(sorted(r) == sorted(pairs) for r in runs)
+    assert all(sum(pr in r[:8] for r in runs) == 2 for pr in pairs)
+    assert all(sum(p[1] == t for p in r[:8]) == 4 for r in runs for t in tfs)
+    return runs
+
+
 def write(name, blocks, description=""):
     out = {"name": name, "blocks": blocks}
     if description:
@@ -73,6 +98,16 @@ def main():
             made.append(write(f"02 8ori 4s random E{e} r{r}", sweep_4s(order),
                               f"experiment {e}, run {r} of 4, seed {e}: {' '.join(map(str, order))} — labels from the runner log only"))
     made.append(write("03 8ori 8s", eight_s(DIRS), "grey 2 s, 0→315 × 8 s, grey 4 s after each"))
+    # 3 Hz: RL (where most of our boutons come from) prefers higher temporal frequencies than V1.
+    made.append(write("05 8ori 4s 3Hz", sweep_4s(DIRS, tf=3.0), "the house sweep at 3 Hz instead of 1 Hz"))
+    for e in (1, 2, 3):
+        for r, order in enumerate(balanced_orders(4, random.Random(e)), 1):
+            made.append(write(f"06 8ori 4s 3Hz random E{e} r{r}", sweep_4s(order, tf=3.0),
+                              f"as 02 E{e} r{r} (same order) at 3 Hz: {' '.join(map(str, order))} — labels from the runner log only"))
+    for r, order in enumerate(balanced_mixed(random.Random(13)), 1):
+        made.append(write(f"07 1v3Hz mixed r{r}", sweep_4s(order),
+                          f"run {r} of 4, seed 13: all 8 directions at 1 Hz and at 3 Hz, shuffled and balanced — "
+                          + " ".join(f"{d}@{t:g}" for d, t in order)))
     for d in DIRS:
         made.append(write(f"10 8s 1rep {d}deg", eight_s([d]), "grey 2 s, one 8 s grating, grey 4 s"))
     for d in DIRS:

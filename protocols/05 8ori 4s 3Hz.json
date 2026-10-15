@@ -1,0 +1,123 @@
+{
+  "name": "05 8ori 4s 3Hz",
+  "blocks": [
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 0.0,
+      "sf": 0.02,
+      "tf": 3.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 45.0,
+      "sf": 0.02,
+      "tf": 3.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 90.0,
+      "sf": 0.02,
+      "tf": 3.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 135.0,
+      "sf": 0.02,
+      "tf": 3.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 180.0,
+      "sf": 0.02,
+      "tf": 3.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 225.0,
+      "sf": 0.02,
+      "tf": 3.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 270.0,
+      "sf": 0.02,
+      "tf": 3.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 315.0,
+      "sf": 0.02,
+      "tf": 3.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 8.0
+    }
+  ],
+  "description": "the house sweep at 3 Hz instead of 1 Hz"
+}

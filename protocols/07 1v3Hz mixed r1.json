@@ -1,0 +1,235 @@
+{
+  "name": "07 1v3Hz mixed r1",
+  "blocks": [
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 225.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 90.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 180.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 315.0,
+      "sf": 0.02,
+      "tf": 3.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 0.0,
+      "sf": 0.02,
+      "tf": 3.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 135.0,
+      "sf": 0.02,
+      "tf": 3.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 45.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 270.0,
+      "sf": 0.02,
+      "tf": 3.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 0.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 90.0,
+      "sf": 0.02,
+      "tf": 3.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 270.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 315.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 180.0,
+      "sf": 0.02,
+      "tf": 3.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 135.0,
+      "sf": 0.02,
+      "tf": 1.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 45.0,
+      "sf": 0.02,
+      "tf": 3.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 4.0
+    },
+    {
+      "type": "moving",
+      "orientation": 225.0,
+      "sf": 0.02,
+      "tf": 3.0,
+      "contrast": 1.0,
+      "duration": 4.0,
+      "moving": true
+    },
+    {
+      "type": "grey",
+      "orientation": null,
+      "duration": 8.0
+    }
+  ],
+  "description": "run 1 of 4, seed 13: all 8 directions at 1 Hz and at 3 Hz, shuffled and balanced \u2014 225@1 90@1 180@1 315@3 0@3 135@3 45@1 270@3 0@1 90@3 270@1 315@1 180@3 135@1 45@3 225@3"
+}
