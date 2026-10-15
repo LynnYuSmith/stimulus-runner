@@ -1402,7 +1402,7 @@ if(ROLE === 'stim'){
               pairsWithPrevious: !!tr.contrastHalf}); }
   /* Clear = a session boundary, so it must clear everything that carries across one.
      Before, it emptied `rows` only: `logSeq` kept counting and `playedEvents` kept growing, so
-     the next session's CSV started mid-count (abf001 260902 began at n=206) and the exported
+     the next session's CSV started mid-count (one session began at n=206) and the exported
      protocol still contained the previous session's blocks. Both had to be reconciled by hand
      afterwards, and an off-by-one there silently relabels every later epoch. */
   document.getElementById('clearLog').onclick=()=>{
@@ -1483,7 +1483,7 @@ if(ROLE === 'stim'){
   }
   /* Grey IS shown on the screen, so it belongs in the record and is kept. But a grey block
      measures wall time from when it opened, so a runner left open between recordings ends up
-     with the whole idle stretch as a single grey: abf001 260902 exported one of 364.6 HOURS
+     with the whole idle stretch as a single grey: one session exported one of 364.6 HOURS
      and a total_duration_s of 406 h for a 68-minute session. That is still a true statement
      about the screen and a useless one about the session, so it is MARKED rather than dropped
      -- a consumer can then tell a shown-between-gratings grey from an unattended one. */
@@ -1916,7 +1916,7 @@ if(ROLE === 'stim'){
      one 64 KB per-page quota until its reply has been READ, and this PUT never read its reply:
      each ~3.3 KB cockpit save stayed "in flight", and after ~20 blocks the quota was full and
      every request from the page -- this one, the trial log, and so the LabChart comments --
-     failed with "Failed to fetch" for the rest of the session (cm027 2026-10-02 and 10-05,
+     failed with "Failed to fetch" for the rest of the session (two sessions in October,
      both after block 27; reproduced in Chrome on 2026-10-05 at block ~23). */
   function flushSession(){
     if(!sessDirty || sessInflight) return;
