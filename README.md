@@ -10,7 +10,9 @@ analysis pipeline's schema.
 One HTML page plus a standard-library Python server. No install. Written to replace a MATLAB
 rig setup.
 
-![cockpit](https://raw.githubusercontent.com/LynnYuSmith/stimulus-runner/main/docs/cockpit.png)
+![the cockpit presenting a 45° grating; right, the live mirror of the mouse's screen, with the top-right corner kept for the photodiode marker](https://raw.githubusercontent.com/LynnYuSmith/stimulus-runner/main/docs/cockpit.png)
+
+<sub>The notch in the top-right corner of the mirror is the photodiode marker's square, dark between pulses.</sub>
 
 ## Running
 
