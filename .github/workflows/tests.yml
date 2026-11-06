@@ -8,7 +8,7 @@ on:
 
 jobs:
   protocol:
-    name: protocol tests (node ${{ matrix.node }})
+    name: tests (node ${{ matrix.node }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -19,10 +19,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
-      - name: Protocol unit tests
-        run: node test/protocol.test.js
-      - name: Export tests — the buttons actually clicked
-        run: node test/exports.test.js
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Unit tests — npm test (protocol, exports, trial log, queue, session, crash)
+        run: npm test
       - name: Syntax-check the page and the server
         run: |
           node --check protocol.js
