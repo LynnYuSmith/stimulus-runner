@@ -199,6 +199,20 @@
   const isGrating = (type) => type === "moving" || type === "still";
 
   /**
+   * The contrast-half rule, in one place: a grating shown straight after a grating, with nothing
+   * between, is marked with `MARKER.TYPE_PULSES.contrast` (4) pulses instead of its own count.
+   * It looks only at the block before, so a third grating in a row gets 4 as well. The page
+   * decides the on-screen marker with this, and `buildProtocol` writes the same count into the
+   * played protocol, so the record says what the photodiode saw.
+   */
+  function isContrastHalf(prevType, type) { return isGrating(prevType) && isGrating(type); }
+
+  /** Pulse count of a block given the block shown before it (null/undefined for the first). */
+  function markerPulsesAfter(prevType, type) {
+    return isContrastHalf(prevType, type) ? MARKER.TYPE_PULSES.contrast : pulsesFor(type);
+  }
+
+  /**
    * What was actually on the screen for one block.
    *
    *   `grating`  one grating
@@ -291,7 +305,7 @@
         start_time_s: round3(t),
         end_time_s: round3(t + dur),
         duration_s: round3(dur),
-        marker_pulses: pulsesFor(b.type),
+        marker_pulses: markerPulsesAfter(i > 0 ? played[i - 1].type : null, b.type),
       };
       if (grating) {
         item.spatial_freq_cpp = numOrNull(b.sf);
@@ -381,7 +395,7 @@
     MARKER, STIM, pulsesFor, markerSidePx, markerTrainDuration, blockLabel,
     queueTimeline, buildProtocol, cyclesPerPixel, gratingPhaseArg,
     plaidComponents, plaidAngle, plaidLuminance, driftPhase, reversalAmplitude, phaseRad,
-    mescCode, mescComment, stimKind, pairMembership,
+    mescCode, mescComment, stimKind, pairMembership, isContrastHalf, markerPulsesAfter,
   };
 
   if (typeof module !== "undefined" && module.exports) module.exports = API;

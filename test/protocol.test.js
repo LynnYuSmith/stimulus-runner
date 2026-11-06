@@ -125,6 +125,27 @@ test("buildProtocol carries grating params and marker encoding", () => {
   assert.strictEqual(proto.marker.corner, "tr");
 });
 
+test("contrast half: 4 pulses for a grating shown straight after a grating", () => {
+  assert.strictEqual(P.MARKER.TYPE_PULSES.contrast, 4);
+  assert.strictEqual(P.markerPulsesAfter("moving", "moving"), 4);
+  assert.strictEqual(P.markerPulsesAfter("still", "moving"), 4);
+  assert.strictEqual(P.markerPulsesAfter("moving", "still"), 4);
+  assert.strictEqual(P.markerPulsesAfter("grey", "moving"), 3);
+  assert.strictEqual(P.markerPulsesAfter(null, "still"), 2);
+  assert.strictEqual(P.markerPulsesAfter("moving", "grey"), 1);
+  assert.strictEqual(P.markerPulsesAfter("moving", "black"), 0);
+});
+
+test("played protocol records the marker the screen showed (4 after a grating, third in a row too)", () => {
+  const g = (o) => ({ type: "moving", orientation: o, sf: 0.02, tf: 1, contrast: 1, duration_s: 4 });
+  const played = [g(135), g(315), g(0), { type: "grey", duration_s: 4 }, g(45)];
+  const s = P.buildProtocol(played, {}).sequence;
+  assert.deepStrictEqual(s.map((b) => b.marker_pulses), [3, 4, 4, 1, 3]);
+  // pairing stays two at a time: the third grating is not part of the first pair
+  assert.deepStrictEqual(s.map((b) => b.pair_part || null), [1, 2, null, null, null]);
+  assert.strictEqual(s[0].pair_code, "135c315");
+});
+
 /* ---------------------------------------------------------------- plaids */
 
 const BASE = { sf: 0.02, waveform: "sinusoid", contrast: 0.5, meanLum: 0.5 };
@@ -258,12 +279,13 @@ test("each grating of a standing plaid reverses at its own rate", () => {
 test("the protocol says whether a rate is a drift or a reversal", () => {
   const proto = P.buildProtocol([
     { type: "moving", orientation: 0, sf: 0.02, tf: 1, contrast: 0.5, duration_s: 4 },
+    { type: "grey", duration_s: 4 },   // without it the still grating is a contrast half (4)
     { type: "still", orientation: 0, sf: 0.02, tf: 4, contrast: 0.5, duration_s: 4 },
   ]);
   assert.strictEqual(proto.sequence[0].temporal_freq_role, "drift_hz");
-  assert.strictEqual(proto.sequence[1].temporal_freq_role, "reversal_hz");
-  assert.strictEqual(proto.sequence[1].temporal_freq, 4);
-  assert.strictEqual(proto.sequence[1].marker_pulses, 2);   // still is still, to the photodiode
+  assert.strictEqual(proto.sequence[2].temporal_freq_role, "reversal_hz");
+  assert.strictEqual(proto.sequence[2].temporal_freq, 4);
+  assert.strictEqual(proto.sequence[2].marker_pulses, 2);   // still is still, to the photodiode
 });
 
 /* ------------------------------------------- the notation the MESc comments are written in */

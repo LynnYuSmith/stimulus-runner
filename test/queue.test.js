@@ -179,6 +179,8 @@ test("a grating straight after a grating gets 4 pulses and the two become one pa
   assert.strictEqual(c.last("pairPart"), 2);
   assert.strictEqual(c.at(1, "pairCode"), "135c315", "the first block was amended into the pair");
   assert.strictEqual(c.at(1, "pairPart"), 1);
+  c.show(0);
+  assert.strictEqual(c.count(), 4, "a third grating in a row is marked with four pulses too");
   c.grey(); c.show(135);
   assert.strictEqual(c.count(), 3, "grey in between breaks the pair");
   assert.strictEqual(c.last("pairCode"), "");

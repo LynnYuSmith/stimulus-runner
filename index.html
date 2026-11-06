@@ -984,7 +984,7 @@ if(ROLE === 'stim'){
     /* A grating that follows a grating with nothing between is the contrast half of a pair
        (4c4s). Decided here, from what was actually on screen -- not from the queue's plan --
        so a manual second grating counts too, and a pause or a grey in between breaks it. */
-    tr.contrastHalf = !!(curBlock && (curBlock.type === 'moving' || curBlock.type === 'still'));
+    tr.contrastHalf = window.STIMPROTOCOL.isContrastHalf(curBlock && curBlock.type, tr.moving ? 'moving' : 'still');
     closeBlock(); openBlock(tr.type, tr);
     R.present(tr);                               // mirror
     sendStim({cmd:'present', trial:tr});
