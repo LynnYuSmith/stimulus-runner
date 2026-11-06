@@ -72,7 +72,7 @@ at mean 0.
 **Orientation convention.** The vertical term is `− y·sin θ` (y down) and the drift phase
 decreases. With the opposite sign, 45° and 135° are mirrored and every oblique tuning label is
 wrong. Checked once, frame by frame, against the lab's pulse2percept-based generator for binary
-drifting gratings (8 directions); a unit test pins the sign of the vertical term. No gamma LUT.
+drifting gratings (0, 45, 90 and 135°); a unit test pins the sign of the vertical term. No gamma LUT.
 
 ### Plaids
 
