@@ -2,10 +2,19 @@
 
 ## Unreleased
 
+**The played protocol records the marker the screen showed for back-to-back gratings.** The page
+marks any grating shown straight after a grating with 4 pulses (including a third in a row), but
+`protocol_played.json` wrote each block's own count, so such a grating was recorded as 3 (or 2).
+`marker_pulses` now comes from the same rule the page uses (`isContrastHalf` /
+`markerPulsesAfter` in `protocol.js`), so the record and the photodiode agree. The on-screen
+marker is unchanged. The CI workflow now runs the whole `npm test` (trial log, queue, session and
+crash suites included). README claims about verification, the orientation formula, the LabChart
+comment, the plaid citation and spatial-frequency units corrected.
+
 **Every played block can go into LabChart as a comment, the moment it starts.** With a
 `labchart.txt` next to `serve.py` holding the address of the new comment agent on the LabChart PC
 (`labchart_agent/`, its own portable folder), the server hands each block's first appearance to the
-agent, which puts `#17 moving 45° · TF 2 Hz · C 50% · … · [M045]` into the running LabChart 8
+agent, which puts `#17 moving 45° · TF 2 Hz · C 50% · … · [45]` into the running LabChart 8
 recording through LabChart's own `AppendComment`. The comment says what played; when it played is
 still the photodiode's, and the block number ties the two. Rows the page re-sends (a grey's closed
 duration, a pair's code) never make a second comment. Sending runs on its own thread with a short

@@ -22,10 +22,11 @@ python serve.py 8080
 python serve.py --no-browser
 ```
 
-Python 3.8+, standard library only, bound to `127.0.0.1`. Serves the page, the `protocols/`
+Python 3.8+ (tested on 3.10+), standard library only, bound to `127.0.0.1`. Serves the page, the `protocols/`
 folder, the trial log and the session file. Idle ~0 % CPU, ~20 MB. Requires Chrome or Edge
 (WebGL1 + ES6); integrated graphics are sufficient. The page also runs from
-`python -m http.server` or off disk, without the saved-protocol list.
+`python -m http.server` or off disk, but then without the saved-protocol list, the on-disk
+trial log and session resume; use the Export buttons to keep the records.
 
 ## Two roles
 
@@ -51,25 +52,27 @@ value beside a slider to type it. The header **manual** link is the in-app guide
 A block is the sum of one or two gratings:
 
 ```
-L(x,y,t) = L_mean · (1 + C · k · Σ_i a_i(t) · wave(2π·f·(x·cos θ_i + y·sin θ_i) + φ_i(t)))
+L(x,y,t) = L_mean · (1 + C · k · Σ_i a_i(t) · wave(2π·f·(x·cos θ_i − y·sin θ_i) + φ_i(t)))
 ```
+
+with `x` to the right and `y` pointing down, as on screen.
 
 | term | |
 |---|---|
 | `wave` | square (default, matches the reference stimulus videos) or sinusoid |
 | `f` | spatial frequency, cycles per pixel of a virtual frame (default 104 × 150 px; 0.02 cyc/px = 3 cycles across), then scaled to the output rect |
 | `θ_i` | each grating's own direction, 0–345° in 15° steps |
-| `φ_i(t)`, `a_i(t)` | drifting: `φ_i` advances at that grating's temporal frequency, `a_i = 1`. Standing: `φ_i` fixed, `a_i = cos(2π·r_i·t)` at that grating's reversal rate; `r_i = 0` is an unmodulated standing grating |
+| `φ_i(t)`, `a_i(t)` | drifting: `φ_i` moves at that grating's temporal frequency, decreasing as in the generator (`φ_i = −2π·tf_i·t` plus the start phase), `a_i = 1`. Standing: `φ_i` fixed, `a_i = cos(2π·r_i·t)` at that grating's reversal rate; `r_i = 0` is an unmodulated standing grating |
 | `C`, `k` | contrast, and its interpretation for a plaid: `k = 1` per component (sum spans 2C), `k = 0.5` per plaid (each component C/2) |
 
 Grey, black and grating are the same WebGL surface; transitions are uniform changes between
 frames, with no rebuild and no black frame. Grey is `C = 0` at the grey mean, black is `C = 0`
 at mean 0.
 
-**Orientation convention.** The vertical term is `− fy·sin θ` and the drift phase decreases,
-matching the reference generator frame-for-frame. With the opposite sign, 45° and 135° are
-mirrored and every oblique tuning label is wrong. Verified against **pulse2percept** (Beyeler
-et al. 2017). No gamma LUT.
+**Orientation convention.** The vertical term is `− y·sin θ` (y down) and the drift phase
+decreases. With the opposite sign, 45° and 135° are mirrored and every oblique tuning label is
+wrong. Checked once, frame by frame, against the lab's pulse2percept-based generator for binary
+drifting gratings (8 directions); a unit test pins the sign of the vertical term. No gamma LUT.
 
 ### Plaids
 
@@ -91,8 +94,11 @@ drift reverses. The quantity of interest is the response to the change, so a res
 two would make them independent presentations.
 
 Pairing is recognised at presentation time from what was on screen, not from the queue — a pair
-assembled by hand records identically. Any grating shown straight after a grating is treated as
-the second half, including a third in a row.
+assembled by hand records identically. The marker gives 4 pulses to any grating shown straight
+after a grating, including a third in a row, and the played protocol's `marker_pulses` follows
+the screen. The trial log and the protocol pair blocks two at a time: `A B C D` with no grey
+between becomes `AB` and `CD` in `pair_code`/`pair_part`, and a lone third grating (`A B C`)
+gets 4 pulses but no pair.
 
 ### Queue builders
 
@@ -103,7 +109,7 @@ the second half, including a third in a row.
 | `+ contrast` | one 4c4s pair |
 | `+ 0–315 sweep` | 8 gratings, 45° steps, grey between |
 | `+ plaid sweep` | 8 plaids, the pair rotated 45° per step, the angle between components fixed |
-| `+ contrast sweep` | 4 pairs — 135c315, 180c0, 225c45, 270c90 — all 8 directions once, grey between pairs only |
+| `+ contrast sweep` | 4 pairs starting at the form's direction in 45° steps (from 135°: 135c315, 180c0, 225c45, 270c90) — all 8 directions once; grey between pairs if set, never inside one |
 | `+ zone sweep` | the same grating in every cell of the field grid |
 | `+ blitz`, `+ bar sweep`, `+ 4-dir sweep` | flat-field flashes, bar sweeps |
 
@@ -124,7 +130,7 @@ property of either.
 ## LabChart comments
 
 Optional: every played block also goes into the LabChart recording as a comment, at its onset
-(`#17 moving 45° · TF 2 Hz · C 50% · 4 s · sine · [M045]`). On the LabChart PC run the comment agent
+(`#17 moving 45° · TF 2 Hz · C 50% · SF 0.02 c/px · 4 s · sinusoid · [45]`). On the LabChart PC run the comment agent
 (`labchart_agent/`, see its README); on this PC copy `labchart.txt.example` to `labchart.txt` with the
 address the agent prints, and check with `SEND-TEST-COMMENT.bat`. The comment carries the block's identity;
 its time is still the photodiode's. Off without `labchart.txt`.
@@ -132,15 +138,17 @@ its time is still the photodiode's. Off without `labchart.txt`.
 ## Corner marker
 
 A red square flashes in a corner (top-right by default) at every onset, coded by pulse count.
-Mice are red-blind; the photodiode reads it. A pulse is 3 frames on, 3 off, at 51 fps.
-Constants live in `protocol.js` and are tested against the pipeline's.
+Mice lack a long-wavelength cone and are far less sensitive to red; the photodiode reads it. A pulse is 3 frames on, 3 off, at 51 fps.
+Constants live in `protocol.js` and are pinned by unit tests to the values the pipeline's
+generator protocol uses (copied, since the pipeline is private).
 
 | block | pulses |
 |---|---|
 | grey | 1 |
 | standing grating | 2 |
 | drifting grating | 3 |
-| second half of a contrast pair | 4 |
+| grating straight after a grating (second half of a contrast pair, or a third in a row) | 4 |
+| blitz / bar sweep | 1 (same as grey; placeholder) |
 | black | none |
 
 The marker carries the block *type* only. Direction, plaid components and pair membership come
@@ -170,7 +178,7 @@ cumulative times, labels, marker counts, `stim_code`, `stim_kind`, `pair_code`, 
 intended onsets; the photodiode gives frame-exact ones and the two are aligned post-hoc.
 
 **Session** — queue, form, fold state and log position are saved to `logs/session_<id>.json`.
-A session interrupted mid-run is offered back on the next load and resumes into the same log
+A session interrupted mid-run is offered back on the next load (within 12 h) and resumes into the same log
 file, standing paused at the interrupted block.
 
 **Saved protocols** are files in `protocols/`, not browser storage, and travel with the folder.
@@ -202,8 +210,9 @@ any console error.
 * Presentation timing is the browser's and is measured against the photodiode, not trusted.
 * The marker cannot distinguish a plaid from a grating, or one direction from another. Identity
   is recoverable only from the trial log paired to the marker train.
-* Any grating straight after a grating is marked as a contrast half, including a third in a row.
-  Pairing is by adjacency, not by intent.
+* Any grating straight after a grating is marked with 4 pulses, including a third in a row,
+  while the log pairs two at a time (`A B C D` → `AB`, `CD`). Pairing is by adjacency, not by
+  intent.
 * No gamma LUT.
 * Plaids, contrast pairs, contrast reversal and the folding cockpit are verified headless and in
   a real Chrome, not yet on the rig.
@@ -223,14 +232,17 @@ one existing pipeline's decoder. For general use:
   this would need next.
 * **StimServer / FocusStack** — Muir & Kampa 2015, *Front Neuroinform* 8:85.
 
-Summed gratings follow the design of **Lin, Okun, Carandini & Harris 2015**, *The Nature of
-Shared Cortical Variability*, *Neuron* 87:644–656: summation, a fixed angle between components,
-and the pair rotated across presentations to limit adaptation. Their plaids used
-contrast-reversing components in cat; their mouse gratings drifted, as the default here does.
-Both forms are available. The 45° step is this rig's own eight directions, not theirs.
+The plaid design — two contrast-reversing gratings summed — follows **Busse, Wade & Carandini
+2009**, *Neuron* 64:931–942 (doi:10.1016/j.neuron.2009.11.004), whose cat recordings were
+re-analysed in **Lin, Okun, Carandini & Harris 2015**, *The Nature of Shared Cortical
+Variability*, *Neuron* 87:644–656. Their mouse gratings drifted, as the default here does. Both
+forms are available. A fixed angle between components, the pair rotated across presentations,
+and the 45° step are this tool's own choices for this rig's eight directions.
 
-Grating parameters (0.02 cyc/px, ~1 Hz, full contrast) follow the in-house generator and sit in
-the canonical mouse-V1 range (Niell & Stryker 2008, *J Neurosci* 28:7520–7536). A coloured
+Grating parameters (0.02 cyc/px of the virtual frame, ~1 Hz, full contrast) follow the in-house
+generator. What they are in cycles per degree depends on screen size and viewing distance; for
+reference, Niell & Stryker 2008 (*J Neurosci* 28:7520–7536) report mouse V1 preferring
+~0.02–0.08 cyc/deg. A coloured
 corner square read by a photodiode is a community method.
 
 ## License
